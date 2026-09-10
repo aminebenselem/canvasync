@@ -25,6 +25,7 @@ export class Canvas implements AfterViewInit {
     ctx.moveTo(100, 100);
     ctx.lineTo(300, 200);
         ctx.lineTo(500, 200);
+        ctx.lineTo(500, 200);
         ctx.arcTo(600, 200, 600, 300, 100);
     ctx.stroke();
 
