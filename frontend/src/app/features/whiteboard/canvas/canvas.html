@@ -1,1 +1,22 @@
-<canvas class="bg-slate-500 w-screen h-screen" #canvas width="800" height="600"></canvas>
+<div class="relative w-full h-screen">
+
+  <canvas
+    #canvas
+    class="absolute inset-0 w-full h-full bg-slate-500"
+    (mousedown)="startDrawing($event)"
+    (mousemove)="keepDrawing($event)"
+    (mouseup)="finishDrawing()">
+  </canvas>
+
+  <app-toolbar
+    class="absolute top-0 left-0 w-full z-50"
+    (toolChange)="onToolChange($event)"
+  (colorChange)="onColorChange($event)"
+  (strokeWidthChange)="onStrokeWidthChange($event)"
+  (undo)="onUndo()"
+  (redo)="onRedo()"
+  (clear)="onClear()"
+  (zoomChange)="onZoomChange($event)">
+  </app-toolbar>
+
+</div>
