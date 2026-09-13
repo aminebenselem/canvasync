@@ -1,16 +1,14 @@
 <!-- Floating top toolbar -->
-<div class="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-1 rounded-2xl bg-white/90 backdrop-blur px-2 py-2 shadow-lg ring-1 ring-black/5">
+<div
+  class="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-1 rounded-2xl bg-white/90 backdrop-blur px-2 py-2 shadow-lg ring-1 ring-black/5">
 
   <!-- Tools -->
   <div class="flex items-center gap-0.5 pr-2 border-r border-gray-200">
-    <button
-      *ngFor="let tool of tools"
-      (click)="selectTool(tool.id)"
-      [title]="tool.label"
-      [class.bg-blue-100]="activeTool() === tool.id"
-      [class.text-blue-600]="activeTool() === tool.id"
+    <button *ngFor="let tool of tools" (click)="selectTool(tool.id)" [title]="tool.label"
+      [class.bg-blue-100]="activeTool() === tool.id" [class.text-blue-600]="activeTool() === tool.id"
       class="w-9 h-9 flex items-center justify-center rounded-lg text-gray-700 hover:bg-gray-100 transition-colors">
-      <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+        stroke-linejoin="round">
         <path [attr.d]="tool.icon" />
       </svg>
     </button>
@@ -18,47 +16,40 @@
 
   <!-- Color -->
   <div class="relative px-2 border-r border-gray-200">
-    <button
-      (click)="showColorPicker.set(!showColorPicker())"
-      title="Color"
+    <button (click)="showColorPicker.set(!showColorPicker())" title="Color"
       class="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-gray-100">
       <span class="w-5 h-5 rounded-full border border-gray-300" [style.background]="activeColor()"></span>
     </button>
 
     <div *ngIf="showColorPicker()"
-         class="absolute top-12 left-0 flex gap-1.5 bg-white rounded-xl shadow-lg ring-1 ring-black/5 p-2">
-      <button
-        *ngFor="let color of palette"
-        (click)="selectColor(color)"
-        [style.background]="color"
+      class="absolute top-12 left-0 flex gap-1.5 bg-white rounded-xl shadow-lg ring-1 ring-black/5 p-2">
+      <button *ngFor="let color of palette" (click)="selectColor(color)" [style.background]="color"
         class="w-6 h-6 rounded-full border border-gray-300 hover:scale-110 transition-transform"
-        [class.ring-2]="activeColor() === color"
-        [class.ring-blue-500]="activeColor() === color">
+        [class.ring-2]="activeColor() === color" [class.ring-blue-500]="activeColor() === color">
       </button>
     </div>
   </div>
 
   <!-- Stroke width -->
   <div class="flex items-center gap-2 px-2 border-r border-gray-200">
-    <input
-      type="range"
-      min="1"
-      max="20"
-      [value]="strokeWidth()"
-      (input)="setStrokeWidth(+$any($event.target).value)"
+    <input type="range" min="1" max="20" [value]="strokeWidth()" (input)="setStrokeWidth(+$any($event.target).value)"
       class="w-16 accent-blue-600" />
     <span class="text-xs text-gray-500 w-4 text-center">{{ strokeWidth() }}</span>
   </div>
 
   <!-- Undo / Redo -->
   <div class="flex items-center gap-0.5 px-2 border-r border-gray-200">
-    <button (click)="undo.emit()" title="Undo" class="w-9 h-9 flex items-center justify-center rounded-lg text-gray-700 hover:bg-gray-100">
-      <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <button (click)="undo.emit()" [disabled]="!canUndo" title="Undo"
+      class="w-9 h-9 flex items-center justify-center rounded-lg text-gray-700 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed">
+      <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+        stroke-linejoin="round">
         <path d="M9 14L4 9l5-5M4 9h11a5 5 0 010 10h-1" />
       </svg>
     </button>
-    <button (click)="redo.emit()" title="Redo" class="w-9 h-9 flex items-center justify-center rounded-lg text-gray-700 hover:bg-gray-100">
-      <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <button (click)="redo.emit()" [disabled]="!canRedo" title="Redo"
+      class="w-9 h-9 flex items-center justify-center rounded-lg text-gray-700 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed">
+      <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+        stroke-linejoin="round">
         <path d="M15 14l5-5-5-5M20 9H9a5 5 0 000 10h1" />
       </svg>
     </button>
@@ -66,15 +57,20 @@
 
   <!-- Zoom -->
   <div class="flex items-center gap-1 px-2 border-r border-gray-200">
-    <button (click)="zoomOut()" class="w-8 h-8 flex items-center justify-center rounded-lg text-gray-700 hover:bg-gray-100">−</button>
-    <button (click)="resetZoom()" class="text-xs text-gray-600 w-10 text-center hover:bg-gray-100 rounded px-1 py-1">{{ zoom() }}%</button>
-    <button (click)="zoomIn()" class="w-8 h-8 flex items-center justify-center rounded-lg text-gray-700 hover:bg-gray-100">+</button>
+    <button (click)="zoomOut()"
+      class="w-8 h-8 flex items-center justify-center rounded-lg text-gray-700 hover:bg-gray-100">−</button>
+    <button (click)="resetZoom()" class="text-xs text-gray-600 w-10 text-center hover:bg-gray-100 rounded px-1 py-1">{{
+      zoom() }}%</button>
+    <button (click)="zoomIn()"
+      class="w-8 h-8 flex items-center justify-center rounded-lg text-gray-700 hover:bg-gray-100">+</button>
   </div>
 
   <!-- Clear -->
   <div class="pl-2">
-    <button (click)="clear.emit()" title="Clear canvas" class="w-9 h-9 flex items-center justify-center rounded-lg text-red-500 hover:bg-red-50">
-      <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <button (click)="clear.emit()" title="Clear canvas"
+      class="w-9 h-9 flex items-center justify-center rounded-lg text-red-500 hover:bg-red-50">
+      <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+        stroke-linejoin="round">
         <path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14" />
       </svg>
     </button>

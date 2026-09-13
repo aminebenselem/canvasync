@@ -1,16 +1,22 @@
 <div class="relative w-full h-screen">
-
+ <button
+    class="absolute top-20 left-20 z-100 px-4 py-2 bg-white text-black"
+    (click)="redraw()">
+    Redraw
+  </button>
   <canvas
     #canvas
     class="absolute inset-0 w-full h-full bg-slate-500"
-    (mousedown)="startDrawing($event)"
-    (mousemove)="keepDrawing($event)"
-    (mouseup)="finishDrawing()">
+    (mousedown)="onMouseDown($event)"
+    (mousemove)="onMouseMove($event)"
+    (mouseup)="onMouseUp($event)">
   </canvas>
 
   <app-toolbar
     class="absolute top-0 left-0 w-full z-50"
-    (toolChange)="onToolChange($event)"
+  [canUndo]="currentCanvas.undoStack.length > 0"
+  [canRedo]="currentCanvas.redoStack.length > 0"
+  (toolChange)="onToolChange($event)"
   (colorChange)="onColorChange($event)"
   (strokeWidthChange)="onStrokeWidthChange($event)"
   (undo)="onUndo()"

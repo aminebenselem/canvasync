@@ -1,3 +1,9 @@
 canvas {
   display: block;
 }
+.cursor-pen {
+  cursor: url('/pen.png') 0 32, auto;
+}
+.cursor-eraser {
+  cursor: url('/assets/cursors/eraser.svg') 12 12, cell;
+}

@@ -1,51 +1,58 @@
-import { AfterViewInit, Component, ElementRef, HostListener, ViewChild } from '@angular/core';
-import { Toolbar } from '../toolbar/toolbar';
+import {
+  AfterViewInit,
+  Component,
+  ElementRef,
+  HostListener,
+  signal,
+  ViewChild
+} from '@angular/core';
+
+import { Toolbar, ToolType } from '../toolbar/toolbar';
+import { Viewport, Stroke, Point, CanvasState, Shape } from './models';
+import { CanvasRenderer } from '../canvas-renderer';
 
 
-interface Point {
-  x: number;
-  y: number;
-}
-interface Stroke {
-  points: Point[];
-  color: string;
-  width: number;
-}
-interface Shape {
-  type: 'rectangle' | 'ellipse' | 'line' | 'arrow' | 'text' | 'sticky';
-  start: Point;
-  end: Point;
-  color: string;
-  width: number;
-  text?: string;
-}
-interface CanvasState {
-  strokes: Stroke[];
-  shapes: Shape[];
-  undoStack: CanvasState[];
-  redoStack: CanvasState[];
-}
 @Component({
   selector: 'app-canvas',
   imports: [Toolbar],
   templateUrl: './canvas.html',
   styleUrl: './canvas.css',
 })
-
 export class Canvas implements AfterViewInit {
+
+  constructor(private canvasRenderer: CanvasRenderer) { }
+
   currentCanvas: CanvasState = {
     strokes: [],
     shapes: [],
     undoStack: [],
     redoStack: []
   };
-  //temporary
-  penSelected = true;
-  //this is preventing canvas from drawing before mouse down
+
+  viewport: Viewport = {
+    zoom: 1,
+    offsetX: 0,
+    offsetY: 0
+  };
+
+  activeTool: ToolType = 'select';
+
   isDrawing = false;
+  isPanning = false;
+
   currentStroke: Stroke | null = null;
+  currentShape: Shape | null = null;
+  lastPanPoint: Point | null = null;
+
+  strokeColor = '#000000';
+  strokeWidth = 1;
+
   @ViewChild('canvas', { static: true })
   canvas!: ElementRef<HTMLCanvasElement>;
+
+  // -------------------------
+  // Canvas lifecycle
+  // -------------------------
 
   @HostListener('window:resize')
   onResize() {
@@ -53,156 +60,266 @@ export class Canvas implements AfterViewInit {
 
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
+
+    this.redraw();
   }
-
-
 
   ngAfterViewInit() {
     const canvas = this.canvas.nativeElement;
 
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
+
+    this.redraw();
   }
 
-  ngOnInit() {
+  // -------------------------
+  // Mouse events
+  // -------------------------
 
-  }
-
-
-  //need to chain mouse down , move and up events to draw on canvas
-  startDrawing(event: MouseEvent) {
-    if (!this.penSelected) {
+  onMouseDown(event: MouseEvent) {
+    if (this.activeTool === 'pan') {
+      this.startPanning(event);
       return;
     }
+    if (this.isShapeTool(this.activeTool)) {
+      this.startShape(event);
+      return;
+    }
+    if (this.activeTool === 'pen') {
+      this.startStroke(event);
+    }
+  }
+
+  onMouseMove(event: MouseEvent) {
+    if (this.isPanning) {
+      this.pan(event);
+      return;
+    }
+    if (this.isShapeTool(this.activeTool) && this.currentShape) {
+      this.redraw();
+      this.drawShape(event);
+        
+      return;
+    }
+    if (this.isDrawing) {
+      this.drawStroke(event);
+    }
+  }
+
+  onMouseUp(event: MouseEvent) {
+    if (this.isPanning) {
+      this.finishPanning();
+      return;
+    }
+    if (this.isShapeTool(this.activeTool) && this.currentShape) {
+      this.finishShape();
+          
+      return;
+    }
+    if (this.isDrawing) {
+      this.finishStroke();
+    }
+  }
+
+  // -------------------------
+  // Drawing
+  // -------------------------
+
+  startStroke(event: MouseEvent) {
+    if (event.button !== 0) {
+      return;
+    }
+
     const ctx = this.canvas.nativeElement.getContext('2d');
 
     if (!ctx) {
       return;
     }
+
+    const point = this.screenToWorld(event);
+
     this.isDrawing = true;
+
     ctx.beginPath();
-    ctx.moveTo(event.offsetX, event.offsetY);
+    ctx.moveTo(point.x, point.y);
+
     this.currentStroke = {
-      points: [{ x: event.offsetX, y: event.offsetY }],
-      color: '#000000', // default color
-      width: 1, // default width
+      points: [point],
+      color: this.strokeColor,
+      width: this.strokeWidth
+
     };
+    ctx.strokeStyle = this.currentStroke.color;
+    ctx.lineWidth = this.currentStroke.width;
   }
 
-
-  keepDrawing(event: MouseEvent) {
-    if (!this.penSelected || !this.isDrawing) {
-      return;
-    }
+  drawStroke(event: MouseEvent) {
     const ctx = this.canvas.nativeElement.getContext('2d');
 
     if (!ctx) {
       return;
     }
 
-    ctx.lineTo(event.offsetX, event.offsetY);
+    const point = this.screenToWorld(event);
+
+    ctx.lineTo(point.x, point.y);
     ctx.stroke();
 
     if (this.currentStroke) {
-      this.currentStroke.points.push({ x: event.offsetX, y: event.offsetY });
+      this.currentStroke.points.push(point);
     }
   }
 
-
-  finishDrawing() {
+  finishStroke() {
     this.isDrawing = false;
-    if (!this.penSelected) {
-      return;
-    }
+
     const ctx = this.canvas.nativeElement.getContext('2d');
+
     if (!ctx) {
       return;
     }
+
     ctx.closePath();
 
     if (this.currentStroke) {
-      this.currentCanvas.undoStack.push(this.createSnapshot());
-      this.currentCanvas.strokes.push(this.currentStroke);
+      this.currentCanvas.undoStack.push(
+        this.createSnapshot()
+      );
+
+      this.currentCanvas.strokes.push(
+        this.currentStroke
+      );
+
       this.currentCanvas.redoStack = [];
+
       this.currentStroke = null;
     }
   }
+  startShape(event: MouseEvent) {
+    if (event.button !== 0) {
+      return;
+    }
 
-  onZoomChange($event: number) {
     const ctx = this.canvas.nativeElement.getContext('2d');
+
     if (!ctx) {
       return;
     }
-    ctx.scale($event / 100, $event / 100);
+
+    const point = this.screenToWorld(event);
+
+    ctx.beginPath();
+    ctx.moveTo(point.x, point.y);
+
+    this.currentShape = {
+      type: this.activeTool as 'rectangle' | 'ellipse' | 'line' | 'arrow' | 'text',
+      start: point,
+      end: point,
+      color: this.strokeColor,
+      width: this.strokeWidth
+    };
+    ctx.strokeStyle = this.currentShape.color;
+    ctx.lineWidth = this.currentShape.width;
+    
+  }
+   drawShape(event: MouseEvent) {
+    const ctx = this.canvas.nativeElement.getContext('2d');
+
+    if (!ctx) {
+      return;
+    }
+
+    const point = this.screenToWorld(event);
+    if (this.currentShape) {
+      this.currentShape.end = point;
+    }
+    this.canvasRenderer.renderShapes(ctx, this.currentCanvas.shapes.concat(this.currentShape ? [this.currentShape] : []));
+  }
+  finishShape() {
+    const ctx = this.canvas.nativeElement.getContext('2d');
+
+    if (!ctx) {
+      return;
+    }
+
+    ctx.closePath();
+
+    if (this.currentShape) {
+      this.currentCanvas.undoStack.push(
+        this.createSnapshot()
+      );
+
+      this.currentCanvas.shapes.push(
+        this.currentShape
+      );
+
+      this.currentCanvas.redoStack = [];
+
+      this.currentShape = null;
+    }
+  }
+
+  // -------------------------
+  // Panning
+  // -------------------------
+
+  startPanning(event: MouseEvent) {
+    this.isPanning = true;
+
+    this.canvas.nativeElement.style.cursor = 'grabbing';
+
+    this.lastPanPoint = {
+      x: event.offsetX,
+      y: event.offsetY
+    };
+  }
+
+  pan(event: MouseEvent) {
+    if (!this.lastPanPoint) {
+      return;
+    }
+
+    const dx = event.offsetX - this.lastPanPoint.x;
+    const dy = event.offsetY - this.lastPanPoint.y;
+
+    this.viewport.offsetX += dx;
+    this.viewport.offsetY += dy;
+
+    this.lastPanPoint = {
+      x: event.offsetX,
+      y: event.offsetY
+    };
+
     this.redraw();
   }
 
+  finishPanning() {
+    this.isPanning = false;
+
+    this.canvas.nativeElement.style.cursor = 'grab';
+
+    this.lastPanPoint = null;
+  }
+
+  // -------------------------
+  // Toolbar actions
+  // -------------------------
+
+  onZoomChange(value: number) {
+    this.viewport.zoom = value / 100;
+
+    this.redraw();
+  }
 
   onClear() {
-    const ctx = this.canvas.nativeElement.getContext('2d');
-    if (!ctx) {
-      return;
-    }
-    ctx.clearRect(0, 0, this.canvas.nativeElement.width, this.canvas.nativeElement.height);
-    this.currentCanvas.undoStack.push({ ...this.currentCanvas });
-    this.currentCanvas.redoStack = [];
-    this.currentCanvas.strokes = [];
-    this.currentCanvas.shapes = [];
-  }
-
-
-  onRedo() {
-    const nextState = this.currentCanvas.redoStack.pop();
-
-    if (!nextState) {
+    if (
+      this.currentCanvas.strokes.length === 0 &&
+      this.currentCanvas.shapes.length === 0
+    ) {
       return;
     }
 
-    // Save current state so we can undo the redo
-    this.currentCanvas.undoStack.push(this.createSnapshot());
-
-    // Restore only the drawing data
-    this.currentCanvas.strokes = nextState.strokes;
-    this.currentCanvas.shapes = nextState.shapes;
-
-    this.redraw();
-  }
-
-
-  onUndo() {
-    const previousState = this.currentCanvas.undoStack.pop();
-
-    if (!previousState) {
-      return;
-    }
-
-    // Save current state so we can redo it
-    this.currentCanvas.redoStack.push(this.createSnapshot());
-
-    // Restore only the drawing data
-    this.currentCanvas.strokes = previousState.strokes;
-    this.currentCanvas.shapes = previousState.shapes;
-
-    this.redraw();
-  }
-
-
-  onStrokeWidthChange($event: number) {
-    throw new Error('Method not implemented.');
-  }
-
-
-  onColorChange($event: string) {
-    throw new Error('Method not implemented.');
-  }
-
-
-  onToolChange($event: string) {
-    throw new Error('Method not implemented.');
-  }
-
-
-  redraw() {
     const ctx = this.canvas.nativeElement.getContext('2d');
 
     if (!ctx) {
@@ -216,28 +333,119 @@ export class Canvas implements AfterViewInit {
       this.canvas.nativeElement.height
     );
 
-    for (const stroke of this.currentCanvas.strokes) {
-      ctx.beginPath();
+    this.currentCanvas.undoStack.push(
+      this.createSnapshot()
+    );
 
-      ctx.moveTo(
-        stroke.points[0].x,
-        stroke.points[0].y
-      );
-
-      for (let i = 1; i < stroke.points.length; i++) {
-        ctx.lineTo(
-          stroke.points[i].x,
-          stroke.points[i].y
-        );
-      }
-
-      ctx.stroke();
-    }
+    this.currentCanvas.redoStack = [];
+    this.currentCanvas.strokes = [];
+    this.currentCanvas.shapes = [];
   }
 
+  onUndo() {
+    const previousState =
+      this.currentCanvas.undoStack.pop();
 
-  // Create an independent snapshot of the drawing state for undo/redo history.
-  // The arrays are copied so future changes to the current state don't modify the snapshot.
+    if (!previousState) {
+      return;
+    }
+
+    this.currentCanvas.redoStack.push(
+      this.createSnapshot()
+    );
+
+    this.currentCanvas.strokes =
+      previousState.strokes;
+
+    this.currentCanvas.shapes =
+      previousState.shapes;
+
+    this.redraw();
+  }
+
+  onRedo() {
+    const nextState =
+      this.currentCanvas.redoStack.pop();
+
+    if (!nextState) {
+      return;
+    }
+
+    this.currentCanvas.undoStack.push(
+      this.createSnapshot()
+    );
+
+    this.currentCanvas.strokes =
+      nextState.strokes;
+
+    this.currentCanvas.shapes =
+      nextState.shapes;
+
+    this.redraw();
+  }
+
+  onStrokeWidthChange(value: number) {
+    this.strokeWidth = value
+  }
+
+  onColorChange(value: string) {
+    this.strokeColor = value
+  }
+
+  onToolChange(value: string) {
+    if (
+      [
+        'select',
+        'pen',
+        'eraser',
+        'rectangle',
+        'ellipse',
+        'line',
+        'arrow',
+        'text',
+        'sticky',
+        'pan'
+      ].includes(value)
+    ) {
+      this.activeTool = value as ToolType;
+    }
+
+    this.updateCursor();
+  }
+
+  // -------------------------
+  // Rendering
+  // -------------------------
+
+  redraw() {
+    const canvas = this.canvas.nativeElement;
+    const ctx = canvas.getContext('2d');
+
+    if (!ctx) {
+      return;
+    }
+
+    this.canvasRenderer.redraw(
+      ctx,
+      canvas,
+      this.currentCanvas.strokes,
+      this.currentCanvas.shapes,
+      this.viewport
+    );
+  }
+
+  // -------------------------
+  // Helpers
+  // -------------------------
+  private isShapeTool(tool: ToolType): boolean {
+    return [
+      'rectangle',
+      'ellipse',
+      'line',
+      'arrow',
+      'text',
+    ].includes(tool);
+  }
   private createSnapshot(): CanvasState {
     return {
       strokes: [...this.currentCanvas.strokes],
@@ -245,5 +453,60 @@ export class Canvas implements AfterViewInit {
       undoStack: [],
       redoStack: []
     };
+  }
+
+  private screenToWorld(event: MouseEvent): Point {
+    return {
+      x:
+        (event.offsetX - this.viewport.offsetX)
+        / this.viewport.zoom,
+
+      y:
+        (event.offsetY - this.viewport.offsetY)
+        / this.viewport.zoom
+    };
+  }
+   private updateShape(event: MouseEvent) {
+    if (!this.currentShape) {
+      return;
+    }
+
+    const point = this.screenToWorld(event);
+
+    this.currentShape.end = point;
+  }
+  private updateCursor() {
+    const canvas = this.canvas.nativeElement;
+
+    canvas.classList.remove('cursor-pen');
+    canvas.style.cursor = '';
+
+    switch (this.activeTool) {
+      case 'pen':
+        canvas.classList.add('cursor-pen');
+        break;
+
+      case 'pan':
+        canvas.style.cursor = 'grab';
+        break;
+
+      case 'eraser':
+        canvas.style.cursor = 'cell';
+        break;
+
+      case 'text':
+        canvas.style.cursor = 'text';
+        break;
+
+      case 'rectangle':
+      case 'ellipse':
+      case 'line':
+      case 'arrow':
+      case 'sticky':
+        canvas.style.cursor = 'crosshair';
+        break;
+      default:
+        canvas.style.cursor = 'default';
+    }
   }
 }
