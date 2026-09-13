@@ -30,11 +30,20 @@
     </div>
   </div>
 
-  <!-- Stroke width -->
-  <div class="flex items-center gap-2 px-2 border-r border-gray-200">
-    <input type="range" min="1" max="20" [value]="strokeWidth()" (input)="setStrokeWidth(+$any($event.target).value)"
+   <!-- Stroke width (hidden for text tool) -->
+  <div *ngIf="activeTool() !== 'text'" class="flex items-center gap-2 px-2 border-r border-gray-200">
+    <input type="range" min="1" max="100" [value]="strokeWidth()" (input)="setStrokeWidth(+$any($event.target).value)"
       class="w-16 accent-blue-600" />
     <span class="text-xs text-gray-500 w-4 text-center">{{ strokeWidth() }}</span>
+  </div>
+
+  <!-- Font size palette (text tool only) -->
+  <div *ngIf="activeTool() === 'text'" class="flex items-center gap-1 px-2 border-r border-gray-200">
+    <button *ngFor="let size of fontSizes" (click)="setFontSize(size)"
+      [class.bg-blue-100]="fontSize() === size" [class.text-blue-600]="fontSize() === size"
+      class="w-8 h-8 flex items-center justify-center rounded-lg text-xs font-medium text-gray-700 hover:bg-gray-100">
+      {{ size }}
+    </button>
   </div>
 
   <!-- Undo / Redo -->

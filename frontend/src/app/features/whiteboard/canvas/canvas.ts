@@ -39,16 +39,23 @@ export class Canvas implements AfterViewInit {
 
   isDrawing = false;
   isPanning = false;
+  isEditingText = false;
 
   currentStroke: Stroke | null = null;
   currentShape: Shape | null = null;
   lastPanPoint: Point | null = null;
+  currentText: string = '';
 
   strokeColor = '#000000';
   strokeWidth = 1;
-
+  textFontSize = 20;
+  private caretInterval: ReturnType<typeof setInterval> | null = null;
+  caretVisible = true;
   @ViewChild('canvas', { static: true })
   canvas!: ElementRef<HTMLCanvasElement>;
+
+  @ViewChild('textInput')
+  textInput!: ElementRef<HTMLInputElement>;
 
   // -------------------------
   // Canvas lifecycle
@@ -62,6 +69,35 @@ export class Canvas implements AfterViewInit {
     canvas.height = window.innerHeight;
 
     this.redraw();
+  }
+
+  @HostListener('window:keydown', ['$event'])
+  onKeyDown(event: KeyboardEvent) {
+
+    if (!this.isEditingText || !this.currentShape) {
+      return;
+    }
+
+    if (event.key === 'Enter') {
+      return;
+    }
+
+    if (event.key === 'Escape') {
+      return;
+    }
+
+    if (event.key === 'Backspace') {
+      this.currentShape.text =
+        this.currentShape.text?.slice(0, -1);
+
+      this.redraw();
+      return;
+    }
+
+    if (event.key.length === 1) {
+      this.currentShape.text += event.key;
+      this.redraw();
+    }
   }
 
   ngAfterViewInit() {
@@ -78,17 +114,29 @@ export class Canvas implements AfterViewInit {
   // -------------------------
 
   onMouseDown(event: MouseEvent) {
+    if (this.isEditingText && this.currentShape) {
+      const point = this.screenToWorld(event);
+
+      if (!this.isPointInsideText(point, this.currentShape)) {
+        this.exitTextEditing();
+        return;
+      }
+    }
     if (this.activeTool === 'pan') {
       this.startPanning(event);
       return;
     }
+
     if (this.isShapeTool(this.activeTool)) {
       this.startShape(event);
       return;
     }
+
     if (this.activeTool === 'pen') {
       this.startStroke(event);
     }
+
+
   }
 
   onMouseMove(event: MouseEvent) {
@@ -96,12 +144,14 @@ export class Canvas implements AfterViewInit {
       this.pan(event);
       return;
     }
+
     if (this.isShapeTool(this.activeTool) && this.currentShape) {
       this.redraw();
       this.drawShape(event);
-        
+
       return;
     }
+
     if (this.isDrawing) {
       this.drawStroke(event);
     }
@@ -112,15 +162,54 @@ export class Canvas implements AfterViewInit {
       this.finishPanning();
       return;
     }
+
     if (this.isShapeTool(this.activeTool) && this.currentShape) {
       this.finishShape();
-          
+
       return;
     }
+
     if (this.isDrawing) {
       this.finishStroke();
     }
   }
+
+  onDoubleClick(event: MouseEvent) {
+    if (this.activeTool === 'select' || this.activeTool === 'text') {
+      this.activeTool = 'text';
+      this.updateCursor();
+      this.startCaretBlink();
+    } else {
+      return;
+    }
+
+    const point = this.screenToWorld(event);
+
+    const newShape: Shape = {
+      type: 'text',
+      start: point,
+      end: point,
+      color: this.strokeColor,
+      width: this.textFontSize,
+      text: ''
+    };
+
+    this.currentCanvas.undoStack.push(
+      this.createSnapshot()
+    );
+
+    this.currentCanvas.shapes.push(newShape);
+    this.currentCanvas.redoStack = [];
+    this.currentShape = newShape;
+    this.isEditingText = true;
+    this.redraw();
+
+
+
+  }
+
+
+
 
   // -------------------------
   // Drawing
@@ -148,8 +237,8 @@ export class Canvas implements AfterViewInit {
       points: [point],
       color: this.strokeColor,
       width: this.strokeWidth
-
     };
+
     ctx.strokeStyle = this.currentStroke.color;
     ctx.lineWidth = this.currentStroke.width;
   }
@@ -196,6 +285,7 @@ export class Canvas implements AfterViewInit {
       this.currentStroke = null;
     }
   }
+
   startShape(event: MouseEvent) {
     if (event.button !== 0) {
       return;
@@ -219,11 +309,12 @@ export class Canvas implements AfterViewInit {
       color: this.strokeColor,
       width: this.strokeWidth
     };
+
     ctx.strokeStyle = this.currentShape.color;
     ctx.lineWidth = this.currentShape.width;
-    
   }
-   drawShape(event: MouseEvent) {
+
+  drawShape(event: MouseEvent) {
     const ctx = this.canvas.nativeElement.getContext('2d');
 
     if (!ctx) {
@@ -231,11 +322,19 @@ export class Canvas implements AfterViewInit {
     }
 
     const point = this.screenToWorld(event);
+
     if (this.currentShape) {
       this.currentShape.end = point;
     }
-    this.canvasRenderer.renderShapes(ctx, this.currentCanvas.shapes.concat(this.currentShape ? [this.currentShape] : []));
+
+    this.canvasRenderer.renderShapes(
+      ctx,
+      this.currentCanvas.shapes.concat(
+        this.currentShape ? [this.currentShape] : []
+      )
+    );
   }
+
   finishShape() {
     const ctx = this.canvas.nativeElement.getContext('2d');
 
@@ -343,6 +442,15 @@ export class Canvas implements AfterViewInit {
   }
 
   onUndo() {
+   
+    if (this.isEditingText) {
+      if(this.currentShape && this.currentShape.text) {
+      //  this.currentShape.text = this.currentShape.text.slice(0, -1);
+        this.currentShape.text = ""
+        this.redraw();
+      }
+      return;
+    }
     const previousState =
       this.currentCanvas.undoStack.pop();
 
@@ -385,11 +493,20 @@ export class Canvas implements AfterViewInit {
   }
 
   onStrokeWidthChange(value: number) {
-    this.strokeWidth = value
+    this.strokeWidth = value;
+  }
+
+  onFontSizeChange(value: number) {
+    this.textFontSize = value;
+
+    if (this.isEditingText && this.currentShape) {
+      this.currentShape.width = value;
+      this.redraw();
+    }
   }
 
   onColorChange(value: string) {
-    this.strokeColor = value
+    this.strokeColor = value;
   }
 
   onToolChange(value: string) {
@@ -432,20 +549,29 @@ export class Canvas implements AfterViewInit {
       this.currentCanvas.shapes,
       this.viewport
     );
+
+    if (this.currentShape) {
+      this.canvasRenderer.renderCaret(
+        ctx,
+        this.currentShape,
+        this.caretVisible
+      );
+    }
   }
 
   // -------------------------
   // Helpers
   // -------------------------
+
   private isShapeTool(tool: ToolType): boolean {
     return [
       'rectangle',
       'ellipse',
       'line',
       'arrow',
-      'text',
     ].includes(tool);
   }
+
   private createSnapshot(): CanvasState {
     return {
       strokes: [...this.currentCanvas.strokes],
@@ -466,15 +592,7 @@ export class Canvas implements AfterViewInit {
         / this.viewport.zoom
     };
   }
-   private updateShape(event: MouseEvent) {
-    if (!this.currentShape) {
-      return;
-    }
 
-    const point = this.screenToWorld(event);
-
-    this.currentShape.end = point;
-  }
   private updateCursor() {
     const canvas = this.canvas.nativeElement;
 
@@ -505,8 +623,78 @@ export class Canvas implements AfterViewInit {
       case 'sticky':
         canvas.style.cursor = 'crosshair';
         break;
+
       default:
         canvas.style.cursor = 'default';
     }
+  }
+  private startCaretBlink() {
+    if (this.caretInterval) {
+      clearInterval(this.caretInterval);
+    }
+
+    this.caretVisible = true;
+
+    this.caretInterval = setInterval(() => {
+      this.caretVisible = !this.caretVisible;
+      this.redraw();
+    }, 500);
+  }
+
+  /**
+   * Leaves text-editing mode. If the shape being edited was left empty
+   * (never typed into, or emptied via backspace), it's discarded instead
+   * of being kept as a stray empty shape — including the undo snapshot
+   * that was pushed for its creation, so undo history isn't left with a
+   * no-op entry.
+   */
+  private exitTextEditing() {
+    if (this.currentShape && !this.currentShape.text) {
+      const idx = this.currentCanvas.shapes.indexOf(this.currentShape);
+
+      if (idx !== -1) {
+        this.currentCanvas.shapes.splice(idx, 1);
+      }
+
+      this.currentCanvas.undoStack.pop();
+    }
+
+    this.isEditingText = false;
+    this.activeTool = 'select';
+
+    if (this.caretInterval) {
+      clearInterval(this.caretInterval);
+      this.caretInterval = null;
+    }
+
+    this.caretVisible = false;
+    this.currentShape = null;
+
+    this.updateCursor();
+    this.redraw();
+  }
+
+  private isPointInsideText(point: Point, shape: Shape): boolean {
+    if (shape.type !== 'text') {
+      return false;
+    }
+
+    const ctx = this.canvas.nativeElement.getContext('2d');
+
+    if (!ctx) {
+      return false;
+    }
+
+    ctx.font = `${shape.width}px Excalifont, "Comic Neue", cursive`;
+
+    const width = ctx.measureText(shape.text ?? '').width;
+    const height = shape.width;
+
+    return (
+      point.x >= shape.start.x &&
+      point.x <= shape.start.x + width &&
+      point.y >= shape.start.y &&
+      point.y <= shape.start.y + height
+    );
   }
 }

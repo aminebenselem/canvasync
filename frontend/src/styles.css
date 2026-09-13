@@ -18,3 +18,11 @@
     transform: translateY(0);
   }
 }
+
+@font-face {
+  font-family: 'Excalifont';
+  src: url('https://excalidraw.nyc3.cdn.digitaloceanspaces.com/fonts/Excalifont-Regular.woff2') format('woff2');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}

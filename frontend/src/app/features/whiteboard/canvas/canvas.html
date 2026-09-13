@@ -9,16 +9,20 @@
     class="absolute inset-0 w-full h-full bg-slate-500"
     (mousedown)="onMouseDown($event)"
     (mousemove)="onMouseMove($event)"
-    (mouseup)="onMouseUp($event)">
+    (mouseup)="onMouseUp($event)"
+    (dblclick)="onDoubleClick($event)"
+    >
+
   </canvas>
 
-  <app-toolbar
+   <app-toolbar
     class="absolute top-0 left-0 w-full z-50"
   [canUndo]="currentCanvas.undoStack.length > 0"
   [canRedo]="currentCanvas.redoStack.length > 0"
   (toolChange)="onToolChange($event)"
   (colorChange)="onColorChange($event)"
   (strokeWidthChange)="onStrokeWidthChange($event)"
+  (fontSizeChange)="onFontSizeChange($event)"
   (undo)="onUndo()"
   (redo)="onRedo()"
   (clear)="onClear()"

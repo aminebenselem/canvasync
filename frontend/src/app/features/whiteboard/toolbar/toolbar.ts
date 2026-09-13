@@ -19,6 +19,7 @@ export class Toolbar {
  @Output() toolChange = new EventEmitter<ToolType>();
   @Output() colorChange = new EventEmitter<string>();
   @Output() strokeWidthChange = new EventEmitter<number>();
+  @Output() fontSizeChange = new EventEmitter<number>();
   @Output() undo = new EventEmitter<void>();
   @Output() redo = new EventEmitter<void>();
   @Output() clear = new EventEmitter<void>();
@@ -30,6 +31,7 @@ export class Toolbar {
   activeTool = signal<ToolType>('select');
   activeColor = signal<string>('#1e1e1e');
   strokeWidth = signal<number>(3);
+  fontSize = signal<number>(20);
   zoom = signal<number>(100);
   showColorPicker = signal(false);
 
@@ -48,6 +50,9 @@ export class Toolbar {
 
   palette = ['#1e1e1e', '#e03131', '#2f9e44', '#1971c2', '#f08c00', '#ffffff'];
 
+  // Matches Excalidraw's own S/M/L/XL font-size presets
+  fontSizes: number[] = [16, 20, 28, 36,48, 64];
+
   selectTool(id: ToolType) {
     this.activeTool.set(id);
     this.toolChange.emit(id);
@@ -62,6 +67,11 @@ export class Toolbar {
   setStrokeWidth(value: number) {
     this.strokeWidth.set(value);
     this.strokeWidthChange.emit(value);
+  }
+
+  setFontSize(value: number) {
+    this.fontSize.set(value);
+    this.fontSizeChange.emit(value);
   }
 
   zoomIn() {

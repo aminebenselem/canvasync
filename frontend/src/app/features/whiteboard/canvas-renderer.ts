@@ -38,6 +38,7 @@ export class CanvasRenderer {
 
     this.renderStrokes(ctx, strokes);
     this.renderShapes(ctx, shapes);
+    this.renderText(ctx, shapes);
 
   }
 
@@ -90,5 +91,43 @@ export class CanvasRenderer {
 
       ctx.stroke();
     }
+  }
+  renderText(ctx: CanvasRenderingContext2D, shapes: Shape[]) {
+    for (const shape of shapes) {
+      if (shape.type === 'text' && shape.text) {
+        ctx.fillStyle = shape.color;
+        ctx.font = `${shape.width}px Excalifont, "Comic Neue", cursive`;
+        ctx.textBaseline = 'top';
+        ctx.fillText(shape.text, shape.start.x, shape.start.y);
+      }
+    }
+  }
+
+  renderCaret(
+    ctx: CanvasRenderingContext2D,
+    shape: Shape,
+    visible: boolean
+  ) {
+    if (!visible) {
+      return;
+    }
+
+    const text = shape.text ?? '';
+
+    ctx.font = `${shape.width}px Excalifont, "Comic Neue", cursive`;
+    ctx.textBaseline = 'top';
+
+    const textWidth = ctx.measureText(text).width;
+
+    const x = shape.start.x + textWidth;
+    const y = shape.start.y;
+
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x, y + shape.width);
+
+    ctx.strokeStyle = shape.color;
+    ctx.lineWidth = 1;
+    ctx.stroke();
   }
 }
