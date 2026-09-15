@@ -44,7 +44,7 @@ export class Toolbar {
     { id: 'line', label: 'Line', icon: 'M4 20L20 4' },
     { id: 'arrow', label: 'Arrow', icon: 'M4 20L20 4M20 4h-6M20 4v6' },
     { id: 'text', label: 'Text', icon: 'M5 4h14M12 4v16' },
-    { id: 'sticky', label: 'Sticky note', icon: 'M4 4h16v16H4zM14 4v6h6' },
+   // { id: 'sticky', label: 'Sticky note', icon: 'M4 4h16v16H4zM14 4v6h6' },
     { id: 'pan', label: 'Pan', icon: 'M7 11V5a2 2 0 0 1 4 0v6M11 11V3a2 2 0 0 1 4 0v8M15 11V5a2 2 0 0 1 4 0v8M7 9a2 2 0 0 0-4 0v3c0 5 4 9 9 9h1a6 6 0 0 0 6-6' },
   ];
 

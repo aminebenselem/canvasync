@@ -3,7 +3,6 @@ import {
   Component,
   ElementRef,
   HostListener,
-  signal,
   ViewChild
 } from '@angular/core';
 
@@ -40,6 +39,7 @@ export class Canvas implements AfterViewInit {
   isDrawing = false;
   isPanning = false;
   isEditingText = false;
+  isErasing = false;
 
   currentStroke: Stroke | null = null;
   currentShape: Shape | null = null;
@@ -114,6 +114,7 @@ export class Canvas implements AfterViewInit {
   // -------------------------
 
   onMouseDown(event: MouseEvent) {
+
     if (this.isEditingText && this.currentShape) {
       const point = this.screenToWorld(event);
 
@@ -121,6 +122,11 @@ export class Canvas implements AfterViewInit {
         this.exitTextEditing();
         return;
       }
+    }
+    if (this.activeTool === 'eraser') {
+      this.isErasing = true;
+      this.erase(event);
+      return;
     }
     if (this.activeTool === 'pan') {
       this.startPanning(event);
@@ -140,11 +146,15 @@ export class Canvas implements AfterViewInit {
   }
 
   onMouseMove(event: MouseEvent) {
+
     if (this.isPanning) {
       this.pan(event);
       return;
     }
-
+    if (this.isErasing) {
+      this.erase(event);
+      return;
+    }
     if (this.isShapeTool(this.activeTool) && this.currentShape) {
       this.redraw();
       this.drawShape(event);
@@ -162,7 +172,11 @@ export class Canvas implements AfterViewInit {
       this.finishPanning();
       return;
     }
-
+    if (this.isErasing) {
+      this.erase(event);
+      this.isErasing = false;
+      return;
+    }
     if (this.isShapeTool(this.activeTool) && this.currentShape) {
       this.finishShape();
 
@@ -175,15 +189,32 @@ export class Canvas implements AfterViewInit {
   }
 
   onDoubleClick(event: MouseEvent) {
-    if (this.activeTool === 'select' || this.activeTool === 'text') {
-      this.activeTool = 'text';
-      this.updateCursor();
-      this.startCaretBlink();
-    } else {
+    if (this.activeTool !== 'select' && this.activeTool !== 'text') {
       return;
     }
 
     const point = this.screenToWorld(event);
+
+    const shape = [...this.currentCanvas.shapes]
+      .reverse()
+      .find(shape =>
+        shape.type === 'sticky' &&
+        this.isPointInsideRectangle(point, shape)
+      );
+
+    if (shape) {
+      this.currentShape = shape;
+      this.isEditingText = true;
+      this.activeTool = 'text';
+      this.updateCursor();
+      this.startCaretBlink();
+      return;
+    }
+
+    // Normal text creation
+    this.activeTool = 'text';
+    this.updateCursor();
+    this.startCaretBlink();
 
     const newShape: Shape = {
       type: 'text',
@@ -200,12 +231,11 @@ export class Canvas implements AfterViewInit {
 
     this.currentCanvas.shapes.push(newShape);
     this.currentCanvas.redoStack = [];
+
     this.currentShape = newShape;
     this.isEditingText = true;
+
     this.redraw();
-
-
-
   }
 
 
@@ -303,11 +333,12 @@ export class Canvas implements AfterViewInit {
     ctx.moveTo(point.x, point.y);
 
     this.currentShape = {
-      type: this.activeTool as 'rectangle' | 'ellipse' | 'line' | 'arrow' | 'text',
+      type: this.activeTool as 'rectangle' | 'ellipse' | 'line' | 'arrow' | 'text' | 'sticky',
       start: point,
       end: point,
       color: this.strokeColor,
-      width: this.strokeWidth
+      width: this.strokeWidth,
+      text: ''
     };
 
     ctx.strokeStyle = this.currentShape.color;
@@ -359,6 +390,7 @@ export class Canvas implements AfterViewInit {
     }
   }
 
+
   // -------------------------
   // Panning
   // -------------------------
@@ -404,7 +436,41 @@ export class Canvas implements AfterViewInit {
   // -------------------------
   // Toolbar actions
   // -------------------------
+  erase(event: MouseEvent) {
+    const point = this.screenToWorld(event);
 
+    // Erase shapes
+    for (let i = this.currentCanvas.shapes.length - 1; i >= 0; i--) {
+      const shape = this.currentCanvas.shapes[i];
+
+      if (this.isPointInsideShape(point, shape)) {
+        this.currentCanvas.undoStack.push(
+          this.createSnapshot()
+        );
+
+        this.currentCanvas.shapes.splice(i, 1);
+        this.currentCanvas.redoStack = [];
+
+        this.redraw();
+        return;
+      }
+    }
+
+    // Erase strokes
+    for (let i = this.currentCanvas.strokes.length - 1; i >= 0; i--) {
+      const stroke = this.currentCanvas.strokes[i];
+
+      if (this.isPointNearStroke(point, stroke)) {
+        this.currentCanvas.undoStack.push(this.createSnapshot());
+
+        this.currentCanvas.strokes.splice(i, 1);
+        this.currentCanvas.redoStack = [];
+
+        this.redraw();
+        return;
+      }
+    }
+  }
   onZoomChange(value: number) {
     this.viewport.zoom = value / 100;
 
@@ -442,10 +508,10 @@ export class Canvas implements AfterViewInit {
   }
 
   onUndo() {
-   
+
     if (this.isEditingText) {
-      if(this.currentShape && this.currentShape.text) {
-      //  this.currentShape.text = this.currentShape.text.slice(0, -1);
+      if (this.currentShape && this.currentShape.text) {
+        //  this.currentShape.text = this.currentShape.text.slice(0, -1);
         this.currentShape.text = ""
         this.redraw();
       }
@@ -550,13 +616,18 @@ export class Canvas implements AfterViewInit {
       this.viewport
     );
 
-    if (this.currentShape) {
-      this.canvasRenderer.renderCaret(
-        ctx,
-        this.currentShape,
-        this.caretVisible
-      );
-    }
+ if (
+  this.currentShape &&
+  (this.currentShape.type === 'text' ||
+   this.currentShape.type === 'sticky') &&
+  this.isEditingText
+) {
+  this.canvasRenderer.renderCaret(
+    ctx,
+    this.currentShape,
+    this.caretVisible
+  );
+}
   }
 
   // -------------------------
@@ -569,6 +640,7 @@ export class Canvas implements AfterViewInit {
       'ellipse',
       'line',
       'arrow',
+      'sticky'
     ].includes(tool);
   }
 
@@ -675,9 +747,6 @@ export class Canvas implements AfterViewInit {
   }
 
   private isPointInsideText(point: Point, shape: Shape): boolean {
-    if (shape.type !== 'text') {
-      return false;
-    }
 
     const ctx = this.canvas.nativeElement.getContext('2d');
 
@@ -696,5 +765,129 @@ export class Canvas implements AfterViewInit {
       point.y >= shape.start.y &&
       point.y <= shape.start.y + height
     );
+  }
+  private isPointNearStroke(
+    point: Point,
+    stroke: Stroke
+  ): boolean {
+    const eraserRadius = 10;
+
+    for (let i = 0; i < stroke.points.length - 1; i++) {
+      const a = stroke.points[i];
+      const b = stroke.points[i + 1];
+
+      const distance = this.distanceToSegment(
+        point,
+        a,
+        b
+      );
+
+      if (distance <= eraserRadius + stroke.width / 2) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+  private distanceToSegment(
+    p: Point,
+    a: Point,
+    b: Point
+  ): number {
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+
+    if (dx === 0 && dy === 0) {
+      return Math.hypot(
+        p.x - a.x,
+        p.y - a.y
+      );
+    }
+
+    const t = Math.max(
+      0,
+      Math.min(
+        1,
+        ((p.x - a.x) * dx + (p.y - a.y) * dy) /
+        (dx * dx + dy * dy)
+      )
+    );
+
+    const closestX = a.x + t * dx;
+    const closestY = a.y + t * dy;
+
+    return Math.hypot(
+      p.x - closestX,
+      p.y - closestY
+    );
+  }
+  private isPointInsideShape(point: Point, shape: Shape): boolean {
+    switch (shape.type) {
+      case 'text':
+        return this.isPointInsideText(point, shape);
+
+      case 'rectangle':
+        return this.isPointInsideRectangle(point, shape);
+
+      case 'ellipse':
+        return this.isPointInsideEllipse(point, shape);
+
+      case 'line':
+      case 'arrow':
+        return this.isPointNearLine(point, shape);
+
+      default:
+        return false;
+    }
+  }
+  private isPointInsideRectangle(
+    point: Point,
+    shape: Shape
+  ): boolean {
+    const minX = Math.min(shape.start.x, shape.end.x);
+    const maxX = Math.max(shape.start.x, shape.end.x);
+    const minY = Math.min(shape.start.y, shape.end.y);
+    const maxY = Math.max(shape.start.y, shape.end.y);
+
+    return (
+      point.x >= minX &&
+      point.x <= maxX &&
+      point.y >= minY &&
+      point.y <= maxY
+    );
+  }
+  private isPointInsideEllipse(
+    point: Point,
+    shape: Shape
+  ): boolean {
+    const centerX = (shape.start.x + shape.end.x) / 2;
+    const centerY = (shape.start.y + shape.end.y) / 2;
+
+    const radiusX = Math.abs(shape.end.x - shape.start.x) / 2;
+    const radiusY = Math.abs(shape.end.y - shape.start.y) / 2;
+
+    if (radiusX === 0 || radiusY === 0) {
+      return false;
+    }
+
+    const dx = point.x - centerX;
+    const dy = point.y - centerY;
+
+    return (
+      (dx * dx) / (radiusX * radiusX) +
+      (dy * dy) / (radiusY * radiusY)
+    ) <= 1;
+  }
+  private isPointNearLine(
+    point: Point,
+    shape: Shape
+  ): boolean {
+    const distance = this.distanceToSegment(
+      point,
+      shape.start,
+      shape.end
+    );
+
+    return distance <= 10 + shape.width / 2;
   }
 }

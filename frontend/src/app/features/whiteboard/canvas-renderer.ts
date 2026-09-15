@@ -1,14 +1,16 @@
 import { Injectable } from '@angular/core';
-import { Shape, Stroke, Viewport } from './canvas/models';
+import { Point, Shape, Stroke, Viewport } from './canvas/models';
 import { drawRectangle } from './shapes/rectangle';
 import { drawEllipse } from './shapes/ellipse';
 import { drawArrow } from './shapes/arrow';
 import { drawLine } from './shapes/line';
+import { drawStickyNote } from './shapes/stickynote';
 
 @Injectable({
   providedIn: 'root'
 })
 export class CanvasRenderer {
+  private readonly stickyFontSize = 16;
 
   redraw(
     ctx: CanvasRenderingContext2D,
@@ -47,11 +49,15 @@ export class CanvasRenderer {
       ctx.strokeStyle = shape.color;
       ctx.lineWidth = shape.width;
       switch (shape.type) {
+        case 'sticky':
+          drawStickyNote(ctx, shape.start, shape.end);
+          break;
         case 'line':
           drawLine(ctx, shape.start, shape.end);
           break;
 
         case 'arrow':
+          ctx.lineWidth = 2;
           drawArrow(ctx, shape.start, shape.end);
           break;
         case 'rectangle':
@@ -100,6 +106,57 @@ export class CanvasRenderer {
         ctx.textBaseline = 'top';
         ctx.fillText(shape.text, shape.start.x, shape.start.y);
       }
+
+      if (shape.type === 'sticky' && shape.text) {
+        const x = Math.min(shape.start.x, shape.end.x);
+        const y = Math.min(shape.start.y, shape.end.y);
+        const width = Math.abs(shape.end.x - shape.start.x);
+        const height = Math.abs(shape.end.y - shape.start.y);
+
+        const padding = 10;
+        const maxWidth = width - padding * 2;
+        const lineHeight = this.stickyFontSize * 1.2;
+
+        ctx.fillStyle = '#3a3a3a';
+        ctx.font = `${this.stickyFontSize}px Excalifont, "Comic Neue", cursive`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+
+        const words = shape.text.split(' ');
+        const lines: string[] = [];
+        let currentLine = '';
+
+        for (const word of words) {
+          const testLine = currentLine
+            ? `${currentLine} ${word}`
+            : word;
+
+          if (ctx.measureText(testLine).width <= maxWidth) {
+            currentLine = testLine;
+          } else {
+            if (currentLine) {
+              lines.push(currentLine);
+            }
+
+            currentLine = word;
+          }
+        }
+
+        if (currentLine) {
+          lines.push(currentLine);
+        }
+
+        const totalHeight = lines.length * lineHeight;
+        const startY = y + (height - totalHeight) / 2;
+
+        lines.forEach((line, index) => {
+          ctx.fillText(
+            line,
+            x + width / 2,
+            startY + index * lineHeight
+          );
+        });
+      }
     }
   }
 
@@ -113,21 +170,40 @@ export class CanvasRenderer {
     }
 
     const text = shape.text ?? '';
+    const fontSize = shape.type === 'sticky' ? this.stickyFontSize : shape.width;
 
-    ctx.font = `${shape.width}px Excalifont, "Comic Neue", cursive`;
+    ctx.font = `${fontSize}px Excalifont, "Comic Neue", cursive`;
     ctx.textBaseline = 'top';
 
     const textWidth = ctx.measureText(text).width;
 
-    const x = shape.start.x + textWidth;
-    const y = shape.start.y;
+    const origin = shape.type === 'sticky'
+      ? this.stickyTextOrigin(shape)
+      : { x: shape.start.x, y: shape.start.y };
+
+    const x = origin.x + textWidth;
+    const y = origin.y;
 
     ctx.beginPath();
     ctx.moveTo(x, y);
-    ctx.lineTo(x, y + shape.width);
+    ctx.lineTo(x, y + fontSize);
 
     ctx.strokeStyle = shape.color;
     ctx.lineWidth = 1;
     ctx.stroke();
+  }
+
+  /**
+   * Normalizes a sticky's start/end into its visual top-left corner
+   * (matching drawStickyNote's own Math.min/abs normalization) and
+   * applies a small inset so text doesn't touch the note's edges.
+   */
+  private stickyTextOrigin(shape: Shape): Point {
+    const padding = 10;
+
+    const x = Math.min(shape.start.x, shape.end.x);
+    const y = Math.min(shape.start.y, shape.end.y);
+
+    return { x: x + padding, y: y + padding };
   }
 }
