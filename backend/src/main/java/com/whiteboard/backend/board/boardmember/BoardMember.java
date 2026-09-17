@@ -1,4 +1,4 @@
-package com.whiteboard.backend.boardmember;
+package com.whiteboard.backend.board.boardmember;
 
 import com.whiteboard.backend.board.Board;
 import com.whiteboard.backend.user.User;

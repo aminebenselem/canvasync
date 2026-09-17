@@ -1,4 +1,4 @@
-package com.whiteboard.backend.boardmember;
+package com.whiteboard.backend.board.boardmember;
 
 public enum BoardPermission {
     VIEWER,

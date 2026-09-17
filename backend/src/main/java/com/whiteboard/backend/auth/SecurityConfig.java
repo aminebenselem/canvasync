@@ -9,6 +9,7 @@ import com.nimbusds.jose.proc.SecurityContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
@@ -30,7 +31,7 @@ public class SecurityConfig {
     ) throws Exception {
 
         http
-                .csrf(csrf -> csrf.disable())
+                .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
                                 "/**"
@@ -67,10 +68,8 @@ public class SecurityConfig {
                 .privateKey(keyPair.getPrivate())
                 .build();
 
-        JWK jwk = rsaKey;
-
         JWKSource<SecurityContext> jwkSource =
-                new ImmutableJWKSet<>(new JWKSet(jwk));
+                new ImmutableJWKSet<>(new JWKSet(rsaKey));
 
         return new NimbusJwtEncoder(jwkSource);
     }

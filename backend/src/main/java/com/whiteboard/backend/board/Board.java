@@ -1,6 +1,6 @@
 package com.whiteboard.backend.board;
 
-import com.whiteboard.backend.boardmember.BoardMember;
+import com.whiteboard.backend.board.boardmember.BoardMember;
 import com.whiteboard.backend.user.User;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -30,13 +30,6 @@ public class Board {
     @JoinColumn(name = "owner_id", nullable = false)
     private User owner;
 
-    @OneToMany(
-            mappedBy = "board",
-            cascade = CascadeType.ALL,
-            orphanRemoval = true
-    )
-    private Set<BoardMember> members = new HashSet<>();
-
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
@@ -45,11 +38,12 @@ public class Board {
 
     @PrePersist
     void onCreate() {
-        // initialize timestamps
-    }
+        Instant now = Instant.now();
+        createdAt = now;
+        updatedAt = now;    }
 
     @PreUpdate
     void onUpdate() {
-        // update timestamp
+        updatedAt  = Instant.now();
     }
 }

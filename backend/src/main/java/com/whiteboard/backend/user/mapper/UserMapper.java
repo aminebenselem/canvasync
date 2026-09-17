@@ -4,6 +4,8 @@ import com.whiteboard.backend.user.User;
 import com.whiteboard.backend.user.dto.UserDto;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
+
 @Component
 public class UserMapper {
 
@@ -13,5 +15,10 @@ public class UserMapper {
                 user.getUsername(),
                 user.getEmail()
         );
+    }
+    public List<UserDto> toDtoList(List<User> users) {
+        return users.stream()
+                .map(this::toDto)
+                .toList();
     }
 }
