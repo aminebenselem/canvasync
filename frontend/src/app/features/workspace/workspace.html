@@ -1,0 +1,290 @@
+<div class="min-h-screen bg-slate-950 px-6 py-8">
+  <div class="mx-auto max-w-7xl">
+
+    <!-- Header -->
+    <div class="mb-8 flex items-center justify-between">
+      <div>
+        <h1 class="text-2xl font-semibold text-white">
+          My Boards
+        </h1>
+
+        <p class="mt-1 text-sm text-slate-400">
+          Create and manage your whiteboards
+        </p>
+      </div>
+
+      <button
+        type="button"
+        class="rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white
+               transition hover:bg-indigo-500 focus:outline-none focus:ring-2
+               focus:ring-indigo-500"
+        (click)="openCreateDialog()"
+      >
+        + New Board
+      </button>
+    </div>
+
+    <!-- Empty State -->
+    @if (boards().length === 0) {
+      <div
+        class="flex min-h-80 flex-col items-center justify-center
+               rounded-xl border border-dashed border-slate-700
+               bg-slate-900/50"
+      >
+        <div
+          class="mb-4 flex h-12 w-12 items-center justify-center
+                 rounded-xl bg-slate-800 text-2xl text-slate-400"
+        >
+          +
+        </div>
+
+        <h2 class="text-lg font-medium text-white">
+          No boards yet
+        </h2>
+
+        <p class="mt-1 text-sm text-slate-400">
+          Create your first whiteboard to get started.
+        </p>
+
+        <button
+          type="button"
+          class="mt-5 rounded-lg bg-indigo-600 px-4 py-2
+                 text-sm font-medium text-white transition
+                 hover:bg-indigo-500"
+          (click)="openCreateDialog()"
+        >
+          Create Board
+        </button>
+      </div>
+    }
+
+    <!-- Board Grid -->
+    @else {
+      <div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+
+        @for (board of boards(); track board.id) {
+          <div
+            class="group overflow-hidden rounded-xl border border-slate-800
+                   bg-slate-900 transition hover:-translate-y-1
+                   hover:border-slate-700 hover:shadow-xl"
+          >
+
+            <!-- Board Preview -->
+            <div
+              class="relative flex h-40 items-center justify-center
+                     overflow-hidden bg-slate-800"
+            >
+              <div class="text-center">
+
+                <div
+                  class="mx-auto mb-2 flex h-10 w-10 items-center
+                         justify-center rounded-lg bg-slate-700
+                         text-slate-400"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke-width="1.5"
+                    stroke="currentColor"
+                    class="h-5 w-5"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      d="M3.75 3.75h16.5v16.5H3.75z"
+                    />
+
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      d="M7.5 15.75l3-3 2.25 2.25 1.5-1.5 2.25 2.25"
+                    />
+                  </svg>
+                </div>
+
+                <span class="text-xs text-slate-500">
+                  Board preview
+                </span>
+
+              </div>
+            </div>
+
+            <!-- Board Information -->
+            <div class="p-4">
+
+              <div class="flex items-start justify-between gap-3">
+
+                <!-- Name + Date -->
+                <div class="min-w-0">
+                  <h2
+                    class="truncate text-sm font-semibold text-white"
+                    [title]="board.name"
+                  >
+                    {{ board.name }}
+                  </h2>
+
+                  <p class="mt-1 text-xs text-slate-500">
+                    Updated {{ board.updatedAt | date: 'mediumDate' }}
+                  </p>
+                </div>
+
+                <!-- Delete Button -->
+                <button
+                  type="button"
+                  title="Delete board"
+                  class="shrink-0 rounded-md p-1.5 text-slate-500
+                         opacity-0 transition hover:bg-red-500/10
+                         hover:text-red-400 group-hover:opacity-100"
+                  (click)="deleteBoard(board.id); $event.stopPropagation()"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke-width="1.5"
+                    stroke="currentColor"
+                    class="h-4 w-4"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      d="M6 7.5h12"
+                    />
+
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      d="M9.75 7.5V5.625
+                         A1.125 1.125 0 0 1 10.875 4.5h2.25
+                         a1.125 1.125 0 0 1 1.125 1.125V7.5"
+                    />
+
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      d="M8.25 7.5v10.125
+                         A1.875 1.875 0 0 0 10.125 19.5h3.75
+                         a1.875 1.875 0 0 0 1.875-1.875V7.5"
+                    />
+
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      d="M10.5 11v5.25"
+                    />
+
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      d="M13.5 11v5.25"
+                    />
+                  </svg>
+                </button>
+
+              </div>
+
+              <!-- Open Board -->
+              <button
+                type="button"
+                class="mt-4 w-full rounded-lg border border-slate-700
+                       px-3 py-2 text-sm font-medium text-slate-300
+                       transition hover:border-indigo-500
+                       hover:bg-indigo-500/10 hover:text-indigo-400"
+                (click)="openBoard(board.id)"
+              >
+                Open Board
+              </button>
+
+            </div>
+          </div>
+        }
+
+      </div>
+    }
+
+  </div>
+
+  <!-- Create Board Modal -->
+  @if (showCreateDialog) {
+    <div
+      class="fixed inset-0 z-50 flex items-center justify-center
+             bg-black/60 px-4"
+      (click)="closeCreateDialog()"
+    >
+
+      <!-- Modal -->
+      <div
+        class="w-full max-w-md rounded-xl border border-slate-800
+               bg-slate-900 p-6 shadow-2xl"
+        (click)="$event.stopPropagation()"
+      >
+
+        <!-- Modal Header -->
+        <div>
+          <h2 class="text-lg font-semibold text-white">
+            Create new board
+          </h2>
+
+          <p class="mt-1 text-sm text-slate-400">
+            Give your board a name to get started.
+          </p>
+        </div>
+
+        <!-- Board Name -->
+        <div class="mt-5">
+          <label
+            for="boardName"
+            class="mb-2 block text-sm font-medium text-slate-300"
+          >
+            Board name
+          </label>
+
+          <input
+            id="boardName"
+            type="text"
+            [(ngModel)]="newBoardName"
+            (keydown.enter)="createBoard()"
+            placeholder="e.g. System Architecture"
+            autocomplete="off"
+            autofocus
+            class="w-full rounded-lg border border-slate-700
+                   bg-slate-800 px-3 py-2.5 text-sm text-white
+                   placeholder:text-slate-500 outline-none transition
+                   focus:border-indigo-500 focus:ring-1
+                   focus:ring-indigo-500"
+          />
+        </div>
+
+        <!-- Modal Actions -->
+        <div class="mt-6 flex justify-end gap-3">
+
+          <button
+            type="button"
+            class="rounded-lg px-4 py-2 text-sm font-medium
+                   text-slate-400 transition hover:bg-slate-800
+                   hover:text-white"
+            (click)="closeCreateDialog()"
+          >
+            Cancel
+          </button>
+
+          <button
+            type="button"
+            [disabled]="!newBoardName.trim()"
+            class="rounded-lg bg-indigo-600 px-4 py-2
+                   text-sm font-medium text-white transition
+                   hover:bg-indigo-500 disabled:cursor-not-allowed
+                   disabled:opacity-50"
+            (click)="createBoard()"
+          >
+            Create Board
+          </button>
+
+        </div>
+
+      </div>
+    </div>
+  }
+
+</div>

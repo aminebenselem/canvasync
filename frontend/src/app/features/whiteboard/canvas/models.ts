@@ -11,9 +11,9 @@ export interface Stroke {
 }
 
 export interface Shape {
-  type: 'rectangle' | 'ellipse' | 'line' | 'arrow' | 'text' | 'sticky';
-  start: Point;
-  end: Point;
+  type: ShapeType;
+  startPoint: Point;
+  endPoint: Point;
   color: string;
   width: number;
   text?: string;
@@ -31,3 +31,36 @@ export interface Viewport {
   offsetX: number;
   offsetY: number;
 }
+export type Element =
+  | {  
+      id: string;
+      type: 'STROKE';
+      data: Stroke;
+    }
+  | {
+      id: string;
+      type: 'RECTANGLE' | 'ELLIPSE' | 'LINE' | 'ARROW' | 'TEXT';
+      data: Shape;
+    };
+
+export interface Board{
+  id: string;
+  name: string;
+  ownerId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+export type ElementType =
+  | 'STROKE'
+  | 'RECTANGLE'
+  | 'ELLIPSE'
+  | 'LINE'
+  | 'ARROW'
+  | 'TEXT';
+export type ShapeType =
+  | 'rectangle'
+  | 'ellipse'
+  | 'line'
+  | 'arrow'
+  | 'text'
+  | 'sticky';

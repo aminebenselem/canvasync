@@ -3,13 +3,17 @@ import {
   Component,
   ElementRef,
   HostListener,
+  OnInit,
   ViewChild
 } from '@angular/core';
 
 import { Toolbar, ToolType } from '../toolbar/toolbar';
-import { Viewport, Stroke, Point, CanvasState, Shape } from './models';
-import { CanvasRenderer } from '../canvas-renderer';
-
+import { Viewport, Stroke, Point, CanvasState, Shape, ElementType, ShapeType } from './models';
+import { CanvasRenderer } from '../../../services/canvas-renderer';
+import { WhiteboardApi } from '../../../services/whiteboard-api';
+import { ActivatedRoute } from '@angular/router';
+import { CreateShapeDto } from '../../../services/dto/dto';
+import { Element } from './models';
 
 @Component({
   selector: 'app-canvas',
@@ -17,10 +21,15 @@ import { CanvasRenderer } from '../canvas-renderer';
   templateUrl: './canvas.html',
   styleUrl: './canvas.css',
 })
-export class Canvas implements AfterViewInit {
+export class Canvas implements AfterViewInit  ,OnInit{
 
-  constructor(private canvasRenderer: CanvasRenderer) { }
+  constructor(private canvasRenderer: CanvasRenderer,
+    private whiteboardApi: WhiteboardApi,
+    private route: ActivatedRoute
+  ) { }
 
+
+  boardId!: string;
   currentCanvas: CanvasState = {
     strokes: [],
     shapes: [],
@@ -100,7 +109,15 @@ export class Canvas implements AfterViewInit {
     }
   }
 
+ngOnInit() {
+  this.boardId = this.route.snapshot.paramMap.get('boardId')!;
+  this.loadBoardElements();
+  console.log(this.currentCanvas);
+}
+
   ngAfterViewInit() {
+    
+
     const canvas = this.canvas.nativeElement;
 
     canvas.width = window.innerWidth;
@@ -218,8 +235,8 @@ export class Canvas implements AfterViewInit {
 
     const newShape: Shape = {
       type: 'text',
-      start: point,
-      end: point,
+      startPoint: point,
+      endPoint: point,
       color: this.strokeColor,
       width: this.textFontSize,
       text: ''
@@ -334,8 +351,8 @@ export class Canvas implements AfterViewInit {
 
     this.currentShape = {
       type: this.activeTool as 'rectangle' | 'ellipse' | 'line' | 'arrow' | 'text' | 'sticky',
-      start: point,
-      end: point,
+      startPoint: point,
+      endPoint: point,
       color: this.strokeColor,
       width: this.strokeWidth,
       text: ''
@@ -355,7 +372,7 @@ export class Canvas implements AfterViewInit {
     const point = this.screenToWorld(event);
 
     if (this.currentShape) {
-      this.currentShape.end = point;
+      this.currentShape.endPoint = point;
     }
 
     this.canvasRenderer.renderShapes(
@@ -380,10 +397,7 @@ export class Canvas implements AfterViewInit {
         this.createSnapshot()
       );
 
-      this.currentCanvas.shapes.push(
-        this.currentShape
-      );
-
+     this.createShape(this.currentShape);
       this.currentCanvas.redoStack = [];
 
       this.currentShape = null;
@@ -478,33 +492,16 @@ export class Canvas implements AfterViewInit {
   }
 
   onClear() {
-    if (
-      this.currentCanvas.strokes.length === 0 &&
-      this.currentCanvas.shapes.length === 0
-    ) {
-      return;
-    }
-
-    const ctx = this.canvas.nativeElement.getContext('2d');
-
-    if (!ctx) {
-      return;
-    }
-
-    ctx.clearRect(
-      0,
-      0,
-      this.canvas.nativeElement.width,
-      this.canvas.nativeElement.height
-    );
-
+   this.deleteAllElements();
     this.currentCanvas.undoStack.push(
       this.createSnapshot()
     );
 
-    this.currentCanvas.redoStack = [];
     this.currentCanvas.strokes = [];
     this.currentCanvas.shapes = [];
+    this.currentCanvas.redoStack = [];
+
+    this.redraw();
   }
 
   onUndo() {
@@ -616,18 +613,18 @@ export class Canvas implements AfterViewInit {
       this.viewport
     );
 
- if (
-  this.currentShape &&
-  (this.currentShape.type === 'text' ||
-   this.currentShape.type === 'sticky') &&
-  this.isEditingText
-) {
-  this.canvasRenderer.renderCaret(
-    ctx,
-    this.currentShape,
-    this.caretVisible
-  );
-}
+    if (
+      this.currentShape &&
+      (this.currentShape.type === 'text' ||
+        this.currentShape.type === 'sticky') &&
+      this.isEditingText
+    ) {
+      this.canvasRenderer.renderCaret(
+        ctx,
+        this.currentShape,
+        this.caretVisible
+      );
+    }
   }
 
   // -------------------------
@@ -730,7 +727,7 @@ export class Canvas implements AfterViewInit {
 
       this.currentCanvas.undoStack.pop();
     }
-
+    this.createShape(this.currentShape!);
     this.isEditingText = false;
     this.activeTool = 'select';
 
@@ -760,10 +757,10 @@ export class Canvas implements AfterViewInit {
     const height = shape.width;
 
     return (
-      point.x >= shape.start.x &&
-      point.x <= shape.start.x + width &&
-      point.y >= shape.start.y &&
-      point.y <= shape.start.y + height
+      point.x >= shape.startPoint.x &&
+      point.x <= shape.startPoint.x + width &&
+      point.y >= shape.startPoint.y &&
+      point.y <= shape.startPoint.y + height
     );
   }
   private isPointNearStroke(
@@ -844,10 +841,10 @@ export class Canvas implements AfterViewInit {
     point: Point,
     shape: Shape
   ): boolean {
-    const minX = Math.min(shape.start.x, shape.end.x);
-    const maxX = Math.max(shape.start.x, shape.end.x);
-    const minY = Math.min(shape.start.y, shape.end.y);
-    const maxY = Math.max(shape.start.y, shape.end.y);
+    const minX = Math.min(shape.startPoint.x, shape.endPoint.x);
+    const maxX = Math.max(shape.startPoint.x, shape.endPoint.x);
+    const minY = Math.min(shape.startPoint.y, shape.endPoint.y);
+    const maxY = Math.max(shape.startPoint.y, shape.endPoint.y);
 
     return (
       point.x >= minX &&
@@ -860,11 +857,11 @@ export class Canvas implements AfterViewInit {
     point: Point,
     shape: Shape
   ): boolean {
-    const centerX = (shape.start.x + shape.end.x) / 2;
-    const centerY = (shape.start.y + shape.end.y) / 2;
+    const centerX = (shape.startPoint.x + shape.endPoint.x) / 2;
+    const centerY = (shape.startPoint.y + shape.endPoint.y) / 2;
 
-    const radiusX = Math.abs(shape.end.x - shape.start.x) / 2;
-    const radiusY = Math.abs(shape.end.y - shape.start.y) / 2;
+    const radiusX = Math.abs(shape.endPoint.x - shape.startPoint.x) / 2;
+    const radiusY = Math.abs(shape.endPoint.y - shape.startPoint.y) / 2;
 
     if (radiusX === 0 || radiusY === 0) {
       return false;
@@ -884,10 +881,79 @@ export class Canvas implements AfterViewInit {
   ): boolean {
     const distance = this.distanceToSegment(
       point,
-      shape.start,
-      shape.end
+      shape.startPoint,
+      shape.endPoint
     );
 
     return distance <= 10 + shape.width / 2;
   }
+
+
+
+
+  // -------------------------
+  // API calls
+  // -------------------------
+loadBoardElements(): void {
+  this.whiteboardApi.getBoardElements(this.boardId)
+    .subscribe({
+      next: (elements: Element[]) => {
+        console.log('Loaded board elements:', elements);
+        elements.forEach(element => {
+          this.addElementToCanvas(element);
+        });
+ 
+        this.redraw();
+      },
+      error: error => {
+        console.error('Failed to load board elements:', error);
+      }
+    });
+}
+
+createShape(shape: Shape): void {
+  const createShapeDto: CreateShapeDto = {
+    type: shape.type.toUpperCase() as ElementType,
+    shapeType: shape.type as ShapeType,
+    color: shape.color,
+    width: shape.width,
+    startPoint: shape.startPoint,
+    endPoint: shape.endPoint,
+    text: shape.text ?? ''
+  };
+
+  this.whiteboardApi
+    .createShape(this.boardId, createShapeDto)
+    .subscribe({
+      next: (element: any) => {
+        this.addElementToCanvas(element);
+        this.redraw();
+      },
+      error: error => {
+        console.error('Failed to create shape:', error);
+      }
+    });
+}
+deleteAllElements(): void {
+  this.whiteboardApi.deleteAllElements(this.boardId)
+    .subscribe({
+      next: () => {
+        this.currentCanvas.strokes = [];
+        this.currentCanvas.shapes = [];
+        this.currentCanvas.undoStack = [];
+        this.currentCanvas.redoStack = [];
+        this.redraw();
+      },
+      error: error => {
+        console.error('Failed to delete all elements:', error);
+      }
+    });
+}
+addElementToCanvas(element: Element): void {
+if (element.type === 'STROKE') {
+    this.currentCanvas.strokes.push(element.data);
+} else {
+    this.currentCanvas.shapes.push(element.data);
+}
+}
 }

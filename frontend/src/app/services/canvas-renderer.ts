@@ -1,10 +1,10 @@
 import { Injectable } from '@angular/core';
-import { Point, Shape, Stroke, Viewport } from './canvas/models';
-import { drawRectangle } from './shapes/rectangle';
-import { drawEllipse } from './shapes/ellipse';
-import { drawArrow } from './shapes/arrow';
-import { drawLine } from './shapes/line';
-import { drawStickyNote } from './shapes/stickynote';
+import { Point, Shape, Stroke, Viewport } from '../features/whiteboard/canvas/models';
+import { drawRectangle } from '../features/whiteboard/shapes/rectangle';
+import { drawEllipse } from '../features/whiteboard/shapes/ellipse';
+import { drawArrow } from '../features/whiteboard/shapes/arrow';
+import { drawLine } from '../features/whiteboard/shapes/line';
+import { drawStickyNote } from '../features/whiteboard/shapes/stickynote';
 
 @Injectable({
   providedIn: 'root'
@@ -50,24 +50,24 @@ export class CanvasRenderer {
       ctx.lineWidth = shape.width;
       switch (shape.type) {
         case 'sticky':
-          drawStickyNote(ctx, shape.start, shape.end);
+          drawStickyNote(ctx, shape.startPoint, shape.endPoint);
           break;
         case 'line':
-          drawLine(ctx, shape.start, shape.end);
+          drawLine(ctx, shape.startPoint, shape.endPoint);
           break;
 
         case 'arrow':
           ctx.lineWidth = 2;
-          drawArrow(ctx, shape.start, shape.end);
+          drawArrow(ctx, shape.startPoint, shape.endPoint);
           break;
         case 'rectangle':
-          drawRectangle(ctx, shape.start, shape.end);
+          drawRectangle(ctx, shape.startPoint, shape.endPoint);
           break;
         case 'ellipse':
           drawEllipse(
             ctx,
-            shape.start,
-            shape.end
+            shape.startPoint,
+            shape.endPoint
           );
           break;
       }
@@ -104,14 +104,14 @@ export class CanvasRenderer {
         ctx.fillStyle = shape.color;
         ctx.font = `${shape.width}px Excalifont, "Comic Neue", cursive`;
         ctx.textBaseline = 'top';
-        ctx.fillText(shape.text, shape.start.x, shape.start.y);
+        ctx.fillText(shape.text, shape.startPoint.x, shape.startPoint.y);
       }
 
       if (shape.type === 'sticky' && shape.text) {
-        const x = Math.min(shape.start.x, shape.end.x);
-        const y = Math.min(shape.start.y, shape.end.y);
-        const width = Math.abs(shape.end.x - shape.start.x);
-        const height = Math.abs(shape.end.y - shape.start.y);
+        const x = Math.min(shape.startPoint.x, shape.endPoint.x);
+        const y = Math.min(shape.startPoint.y, shape.endPoint.y);
+        const width = Math.abs(shape.endPoint.x - shape.startPoint.x);
+        const height = Math.abs(shape.endPoint.y - shape.startPoint.y);
 
         const padding = 10;
         const maxWidth = width - padding * 2;
@@ -179,7 +179,7 @@ export class CanvasRenderer {
 
     const origin = shape.type === 'sticky'
       ? this.stickyTextOrigin(shape)
-      : { x: shape.start.x, y: shape.start.y };
+      : { x: shape.startPoint.x, y: shape.startPoint.y };
 
     const x = origin.x + textWidth;
     const y = origin.y;
@@ -201,8 +201,8 @@ export class CanvasRenderer {
   private stickyTextOrigin(shape: Shape): Point {
     const padding = 10;
 
-    const x = Math.min(shape.start.x, shape.end.x);
-    const y = Math.min(shape.start.y, shape.end.y);
+    const x = Math.min(shape.startPoint.x, shape.endPoint.x);
+    const y = Math.min(shape.startPoint.y, shape.endPoint.y);
 
     return { x: x + padding, y: y + padding };
   }
