@@ -1,87 +1,862 @@
-<!-- Floating top toolbar -->
+<!-- ========================================================= -->
+<!-- Floating Top Toolbar                                      -->
+<!-- ========================================================= -->
+
 <div
-  class="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-1 rounded-2xl bg-white/90 backdrop-blur px-2 py-2 shadow-lg ring-1 ring-black/5">
+  class="fixed top-4 left-1/2 -translate-x-1/2 z-50
+         flex items-center gap-1 rounded-2xl bg-white/90
+         backdrop-blur px-2 py-2 shadow-lg ring-1 ring-black/5"
+>
 
-  <!-- Tools -->
-  <div class="flex items-center gap-0.5 pr-2 border-r border-gray-200">
-    <button *ngFor="let tool of tools" (click)="selectTool(tool.id)" [title]="tool.label"
-      [class.bg-blue-100]="activeTool() === tool.id" [class.text-blue-600]="activeTool() === tool.id"
-      class="w-9 h-9 flex items-center justify-center rounded-lg text-gray-700 hover:bg-gray-100 transition-colors">
-      <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-        stroke-linejoin="round">
+  <!-- ======================================================= -->
+  <!-- Tools                                                   -->
+  <!-- ======================================================= -->
+
+  <div
+    class="flex items-center gap-0.5 pr-2
+           border-r border-gray-200"
+  >
+
+    <button
+      *ngFor="let tool of tools"
+      type="button"
+      (click)="selectTool(tool.id)"
+      [title]="tool.label"
+      [class.bg-blue-100]="activeTool() === tool.id"
+      [class.text-blue-600]="activeTool() === tool.id"
+      class="w-9 h-9 flex items-center justify-center
+             rounded-lg text-gray-700 hover:bg-gray-100
+             transition-colors"
+    >
+
+      <svg
+        class="w-5 h-5"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+
         <path [attr.d]="tool.icon" />
+
       </svg>
-    </button>
-  </div>
 
-  <!-- Color -->
-  <div class="relative px-2 border-r border-gray-200">
-    <button (click)="showColorPicker.set(!showColorPicker())" title="Color"
-      class="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-gray-100">
-      <span class="w-5 h-5 rounded-full border border-gray-300" [style.background]="activeColor()"></span>
     </button>
 
-    <div *ngIf="showColorPicker()"
-      class="absolute top-12 left-0 flex gap-1.5 bg-white rounded-xl shadow-lg ring-1 ring-black/5 p-2">
-      <button *ngFor="let color of palette" (click)="selectColor(color)" [style.background]="color"
-        class="w-6 h-6 rounded-full border border-gray-300 hover:scale-110 transition-transform"
-        [class.ring-2]="activeColor() === color" [class.ring-blue-500]="activeColor() === color">
-      </button>
-    </div>
   </div>
 
-   <!-- Stroke width (hidden for text tool) -->
-  <div *ngIf="activeTool() !== 'text'" class="flex items-center gap-2 px-2 border-r border-gray-200">
-    <input type="range" min="1" max="100" [value]="strokeWidth()" (input)="setStrokeWidth(+$any($event.target).value)"
-      class="w-16 accent-blue-600" />
-    <span class="text-xs text-gray-500 w-4 text-center">{{ strokeWidth() }}</span>
+
+  <!-- ======================================================= -->
+  <!-- Color                                                   -->
+  <!-- ======================================================= -->
+
+  <div
+    class="relative px-2 border-r border-gray-200"
+  >
+
+    <button
+      type="button"
+      (click)="showColorPicker.set(!showColorPicker())"
+      title="Color"
+      class="w-9 h-9 flex items-center justify-center
+             rounded-lg hover:bg-gray-100"
+    >
+
+      <span
+        class="w-5 h-5 rounded-full border border-gray-300"
+        [style.background]="activeColor()"
+      ></span>
+
+    </button>
+
+
+    @if (showColorPicker()) {
+
+      <div
+        class="absolute top-12 left-0 flex gap-1.5
+               bg-white rounded-xl shadow-lg ring-1
+               ring-black/5 p-2"
+      >
+
+        <button
+          *ngFor="let color of palette"
+          type="button"
+          (click)="selectColor(color)"
+          [style.background]="color"
+          class="w-6 h-6 rounded-full border
+                 border-gray-300 hover:scale-110
+                 transition-transform"
+          [class.ring-2]="activeColor() === color"
+          [class.ring-blue-500]="activeColor() === color"
+        ></button>
+
+      </div>
+
+    }
+
   </div>
 
-  <!-- Font size palette (text tool only) -->
-  <div *ngIf="activeTool() === 'text'" class="flex items-center gap-1 px-2 border-r border-gray-200">
-    <button *ngFor="let size of fontSizes" (click)="setFontSize(size)"
-      [class.bg-blue-100]="fontSize() === size" [class.text-blue-600]="fontSize() === size"
-      class="w-8 h-8 flex items-center justify-center rounded-lg text-xs font-medium text-gray-700 hover:bg-gray-100">
+
+  <!-- ======================================================= -->
+  <!-- Stroke Width                                            -->
+  <!-- ======================================================= -->
+
+  <div
+    *ngIf="activeTool() !== 'text'"
+    class="flex items-center gap-2 px-2
+           border-r border-gray-200"
+  >
+
+    <input
+      type="range"
+      min="1"
+      max="100"
+      [value]="strokeWidth()"
+      (input)="setStrokeWidth(+$any($event.target).value)"
+      class="w-16 accent-blue-600"
+    />
+
+    <span
+      class="text-xs text-gray-500 w-4 text-center"
+    >
+      {{ strokeWidth() }}
+    </span>
+
+  </div>
+
+
+  <!-- ======================================================= -->
+  <!-- Font Size                                               -->
+  <!-- ======================================================= -->
+
+  <div
+    *ngIf="activeTool() === 'text'"
+    class="flex items-center gap-1 px-2
+           border-r border-gray-200"
+  >
+
+    <button
+      *ngFor="let size of fontSizes"
+      type="button"
+      (click)="setFontSize(size)"
+      [class.bg-blue-100]="fontSize() === size"
+      [class.text-blue-600]="fontSize() === size"
+      class="w-8 h-8 flex items-center justify-center
+             rounded-lg text-xs font-medium text-gray-700
+             hover:bg-gray-100"
+    >
       {{ size }}
     </button>
+
   </div>
 
-  <!-- Undo / Redo -->
-  <div class="flex items-center gap-0.5 px-2 border-r border-gray-200">
-    <button (click)="undo.emit()" [disabled]="!canUndo" title="Undo"
-      class="w-9 h-9 flex items-center justify-center rounded-lg text-gray-700 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed">
-      <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-        stroke-linejoin="round">
-        <path d="M9 14L4 9l5-5M4 9h11a5 5 0 010 10h-1" />
+
+  <!-- ======================================================= -->
+  <!-- Undo / Redo                                             -->
+  <!-- ======================================================= -->
+
+  <div
+    class="flex items-center gap-0.5 px-2
+           border-r border-gray-200"
+  >
+
+    <button
+      type="button"
+      (click)="undo.emit()"
+      [disabled]="!canUndo"
+      title="Undo"
+      class="w-9 h-9 flex items-center justify-center
+             rounded-lg text-gray-700 hover:bg-gray-100
+             disabled:opacity-40 disabled:cursor-not-allowed"
+    >
+
+      <svg
+        class="w-5 h-5"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+
+        <path
+          d="M9 14L4 9l5-5M4 9h11a5 5 0 010 10h-1"
+        />
+
       </svg>
+
     </button>
-    <button (click)="redo.emit()" [disabled]="!canRedo" title="Redo"
-      class="w-9 h-9 flex items-center justify-center rounded-lg text-gray-700 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed">
-      <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-        stroke-linejoin="round">
-        <path d="M15 14l5-5-5-5M20 9H9a5 5 0 000 10h1" />
+
+
+    <button
+      type="button"
+      (click)="redo.emit()"
+      [disabled]="!canRedo"
+      title="Redo"
+      class="w-9 h-9 flex items-center justify-center
+             rounded-lg text-gray-700 hover:bg-gray-100
+             disabled:opacity-40 disabled:cursor-not-allowed"
+    >
+
+      <svg
+        class="w-5 h-5"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+
+        <path
+          d="M15 14l5-5-5-5M20 9H9a5 5 0 000 10h1"
+        />
+
       </svg>
+
     </button>
+
   </div>
 
-  <!-- Zoom -->
-  <div class="flex items-center gap-1 px-2 border-r border-gray-200">
-    <button (click)="zoomOut()"
-      class="w-8 h-8 flex items-center justify-center rounded-lg text-gray-700 hover:bg-gray-100">−</button>
-    <button (click)="resetZoom()" class="text-xs text-gray-600 w-10 text-center hover:bg-gray-100 rounded px-1 py-1">{{
-      zoom() }}%</button>
-    <button (click)="zoomIn()"
-      class="w-8 h-8 flex items-center justify-center rounded-lg text-gray-700 hover:bg-gray-100">+</button>
+
+  <!-- ======================================================= -->
+  <!-- Zoom                                                    -->
+  <!-- ======================================================= -->
+
+  <div
+    class="flex items-center gap-1 px-2
+           border-r border-gray-200"
+  >
+
+    <button
+      type="button"
+      (click)="zoomOut()"
+      class="w-8 h-8 flex items-center justify-center
+             rounded-lg text-gray-700 hover:bg-gray-100"
+    >
+      −
+    </button>
+
+
+    <button
+      type="button"
+      (click)="resetZoom()"
+      class="text-xs text-gray-600 w-10
+             text-center hover:bg-gray-100
+             rounded px-1 py-1"
+    >
+      {{ zoom() }}%
+    </button>
+
+
+    <button
+      type="button"
+      (click)="zoomIn()"
+      class="w-8 h-8 flex items-center justify-center
+             rounded-lg text-gray-700 hover:bg-gray-100"
+    >
+      +
+    </button>
+
   </div>
 
-  <!-- Clear -->
+
+  <!-- ======================================================= -->
+  <!-- Clear                                                   -->
+  <!-- ======================================================= -->
+@if(canEdit){
   <div class="pl-2">
-    <button (click)="clear.emit()" title="Clear canvas"
-      class="w-9 h-9 flex items-center justify-center rounded-lg text-red-500 hover:bg-red-50">
-      <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-        stroke-linejoin="round">
-        <path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14" />
+
+    <button
+      type="button"
+      (click)="clear.emit()"
+      title="Clear canvas"
+      class="w-9 h-9 flex items-center justify-center
+             rounded-lg text-red-500 hover:bg-red-50"
+    >
+
+      <svg
+        class="w-5 h-5"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+
+        <path
+          d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"
+        />
+
       </svg>
+
     </button>
+
   </div>
+}
+
+  <!-- ======================================================= -->
+  <!-- Members + Invite                                       -->
+  <!-- ======================================================= -->
+
+  <div
+    class="pl-2 border-l border-gray-200
+           flex items-center gap-1"
+  >
+
+    <!-- Members -->
+
+    <button
+      type="button"
+      title="Board members"
+      (click)="openMembersDialog()"
+      class="h-9 px-3 flex items-center gap-2
+             rounded-lg text-gray-700
+             hover:bg-gray-100 hover:text-blue-600
+             transition-colors"
+    >
+
+      <svg
+        class="w-5 h-5"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+
+        <path
+          d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"
+        />
+
+        <circle
+          cx="9"
+          cy="7"
+          r="4"
+        />
+
+        <path
+          d="M19 8v6"
+        />
+
+        <path
+          d="M22 11h-6"
+        />
+
+      </svg>
+
+      <span class="text-sm font-medium">
+        Members
+      </span>
+
+    </button>
+
+
+    <!-- Invite -->
+
+    <button
+      type="button"
+      title="Invite member"
+      (click)="openInviteDialog()"
+      class="h-9 px-3 flex items-center gap-2
+             rounded-lg text-gray-700
+             hover:bg-blue-50 hover:text-blue-600
+             transition-colors"
+    >
+
+      <svg
+        class="w-5 h-5"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+
+        <path
+          d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"
+        />
+
+        <circle
+          cx="9"
+          cy="7"
+          r="4"
+        />
+
+        <path
+          d="M19 8v6"
+        />
+
+        <path
+          d="M22 11h-6"
+        />
+
+      </svg>
+
+      <span class="text-sm font-medium">
+        Invite
+      </span>
+
+    </button>
+
+  </div>
+
 </div>
+
+
+<!-- ========================================================= -->
+<!-- Members Modal                                             -->
+<!-- ========================================================= -->
+
+@if (showMembersDialog()) {
+
+  <div
+    class="fixed inset-0 z-100 flex items-center
+           justify-center bg-black/40 px-4"
+    (click)="closeMembersDialog()"
+  >
+
+    <div
+      class="w-full max-w-lg rounded-2xl bg-white
+             p-6 shadow-2xl"
+      (click)="$event.stopPropagation()"
+    >
+
+      <!-- Header -->
+
+      <div
+        class="flex items-start justify-between"
+      >
+
+        <div>
+
+          <h2
+            class="text-lg font-semibold text-gray-900"
+          >
+            Board members
+          </h2>
+
+          <p
+            class="mt-1 text-sm text-gray-500"
+          >
+            Manage who has access to this board.
+          </p>
+
+        </div>
+
+
+        <button
+          type="button"
+          (click)="closeMembersDialog()"
+          class="rounded-lg p-2 text-gray-400
+                 hover:bg-gray-100 hover:text-gray-700"
+        >
+          ✕
+        </button>
+
+      </div>
+
+
+      <!-- Loading -->
+
+      @if (membersLoading()) {
+
+        <div
+          class="py-10 text-center text-sm
+                 text-gray-500"
+        >
+          Loading members...
+        </div>
+
+      }
+
+
+      <!-- Error -->
+
+      @if (membersError()) {
+
+        <div
+          class="mt-4 rounded-lg border
+                 border-red-200 bg-red-50
+                 px-3 py-2.5 text-sm text-red-600"
+        >
+          {{ membersError() }}
+        </div>
+
+      }
+
+
+      <!-- Members -->
+
+      @if (!membersLoading()) {
+
+        <div
+          class="mt-6 space-y-2"
+        >
+
+          @for (
+            member of members();
+            track member.userId
+          ) {
+
+            <div
+              class="flex items-center justify-between
+                     gap-4 rounded-xl
+                     border border-gray-200
+                     px-4 py-3"
+            >
+
+              <!-- User information -->
+
+              <div
+                class="min-w-0 flex-1"
+              >
+
+                <div
+                  class="truncate text-sm
+                         font-medium text-gray-900"
+                >
+                  {{ member.username }}
+                </div>
+
+                <div
+                  class="truncate text-xs
+                         text-gray-500"
+                >
+                  {{ member.email }}
+                </div>
+
+              </div>
+
+
+              <!-- Permission -->
+@if(isOwner){
+              <select
+                [value]="member.permission"
+                [disabled]="
+                  updatingMemberId() === member.userId
+                "
+                (change)="
+                  updatePermission(
+                    member,
+                    $any($event.target).value
+                  )
+                "
+                class="rounded-lg border
+                       border-gray-300
+                       bg-white px-2 py-1.5
+                       text-sm text-gray-700
+                       outline-none
+                       focus:border-blue-500
+                       focus:ring-1
+                       focus:ring-blue-500"
+              >
+
+                <option value="VIEWER">
+                  Viewer
+                </option>
+
+                <option value="EDITOR">
+                  Editor
+                </option>
+
+              </select>
+}
+
+              <!-- Remove -->
+@if (isOwner) {
+
+              <button
+                type="button"
+                [disabled]="
+                  removingMemberId() === member.userId
+                "
+                (click)="removeMember(member)"
+                class="rounded-lg px-3 py-1.5
+                       text-sm font-medium
+                       text-red-600
+                       hover:bg-red-50
+                       disabled:cursor-not-allowed
+                       disabled:opacity-50"
+              >
+
+                @if (
+                  removingMemberId() === member.userId
+                ) {
+
+                  Removing...
+
+                } @else {
+
+                  Remove
+
+                }
+
+              </button>
+            }
+            </div>
+
+          }
+
+
+          <!-- Empty -->
+
+          @if (members().length === 0) {
+
+            <div
+              class="py-10 text-center"
+            >
+
+              <div
+                class="text-sm font-medium
+                       text-gray-700"
+              >
+                No members yet
+              </div>
+
+              <div
+                class="mt-1 text-xs text-gray-500"
+              >
+                Invite someone to collaborate
+                on this board.
+              </div>
+
+            </div>
+
+          }
+
+        </div>
+
+      }
+
+
+      <!-- Footer -->
+
+      <div
+        class="mt-6 flex justify-end"
+      >
+
+        <button
+          type="button"
+          (click)="closeMembersDialog()"
+          class="rounded-lg px-4 py-2
+                 text-sm font-medium
+                 text-gray-600
+                 hover:bg-gray-100"
+        >
+          Close
+        </button>
+
+      </div>
+
+    </div>
+
+  </div>
+
+}
+
+
+<!-- ========================================================= -->
+<!-- Invite Modal                                              -->
+<!-- ========================================================= -->
+
+@if (showInviteDialog()) {
+
+  <div
+    class="fixed inset-0 z-100 flex items-center
+           justify-center bg-black/40 px-4"
+    (click)="closeInviteDialog()"
+  >
+
+    <div
+      class="w-full max-w-md rounded-2xl
+             bg-white p-6 shadow-2xl"
+      (click)="$event.stopPropagation()"
+    >
+
+      <!-- Header -->
+
+      <div
+        class="flex items-start justify-between"
+      >
+
+        <div>
+
+          <h2
+            class="text-lg font-semibold text-gray-900"
+          >
+            Invite member
+          </h2>
+
+          <p
+            class="mt-1 text-sm text-gray-500"
+          >
+            Invite someone to collaborate
+            on this board.
+          </p>
+
+        </div>
+
+
+        <button
+          type="button"
+          [disabled]="sendInvitationLoading()"
+          (click)="closeInviteDialog()"
+          class="rounded-lg p-2
+                 text-gray-400
+                 hover:bg-gray-100
+                 hover:text-gray-700
+                 disabled:opacity-40"
+        >
+          ✕
+        </button>
+
+      </div>
+
+
+      <!-- Email -->
+
+      <div class="mt-6">
+
+        <label
+          for="inviteEmail"
+          class="mb-2 block text-sm
+                 font-medium text-gray-700"
+        >
+          Email
+        </label>
+
+        <input
+          id="inviteEmail"
+          type="email"
+          [(ngModel)]="inviteEmail"
+          placeholder="user@example.com"
+          autocomplete="off"
+          class="w-full rounded-lg
+                 border border-gray-300
+                 bg-white px-3 py-2.5
+                 text-sm text-gray-900
+                 placeholder:text-gray-400
+                 outline-none
+                 focus:border-blue-500
+                 focus:ring-1
+                 focus:ring-blue-500"
+        />
+
+      </div>
+
+
+      <!-- Permission -->
+      <div class="mt-4">
+
+        <label
+          for="invitePermission"
+          class="mb-2 block text-sm
+                 font-medium text-gray-700"
+        >
+          Permission
+        </label>
+
+        <select
+          id="invitePermission"
+          [(ngModel)]="invitePermission"
+          class="w-full rounded-lg
+                 border border-gray-300
+                 bg-white px-3 py-2.5
+                 text-sm text-gray-900
+                 outline-none
+                 focus:border-blue-500
+                 focus:ring-1
+                 focus:ring-blue-500"
+        >
+
+          <option value="VIEWER">
+            Viewer
+          </option>
+
+          <option value="EDITOR">
+            Editor
+          </option>
+
+        </select>
+
+      </div>
+
+    
+      <!-- Error -->
+
+      @if (sendInvitationError()) {
+
+        <div
+          class="mt-4 rounded-lg
+                 border border-red-200
+                 bg-red-50 px-3 py-2.5
+                 text-sm text-red-600"
+        >
+          {{ sendInvitationError() }}
+        </div>
+
+      }
+
+
+      <!-- Actions -->
+
+      <div
+        class="mt-6 flex justify-end gap-3"
+      >
+
+        <button
+          type="button"
+          [disabled]="sendInvitationLoading()"
+          (click)="closeInviteDialog()"
+          class="rounded-lg px-4 py-2
+                 text-sm font-medium
+                 text-gray-600
+                 hover:bg-gray-100
+                 disabled:opacity-50"
+        >
+          Cancel
+        </button>
+
+
+        <button
+          type="button"
+          [disabled]="
+            sendInvitationLoading() ||
+            !inviteEmail.trim()
+          "
+          (click)="sendInvitation()"
+          class="rounded-lg bg-blue-600
+                 px-4 py-2
+                 text-sm font-medium
+                 text-white
+                 hover:bg-blue-700
+                 disabled:cursor-not-allowed
+                 disabled:opacity-50"
+        >
+
+          @if (sendInvitationLoading()) {
+
+            Sending...
+
+          } @else {
+
+            Send Invitation
+
+          }
+
+        </button>
+
+      </div>
+
+    </div>
+
+  </div>
+
+}

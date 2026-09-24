@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { CreateShapeDto, CreateStrokeDto, UpdateShapeDto, UpdateStrokeDto } from './dto/dto';
 import { Element, Shape, Stroke } from '../features/whiteboard/canvas/models';
+import { Observable } from 'rxjs';
 @Injectable({
   providedIn: 'root',
 })
@@ -32,29 +33,27 @@ export class WhiteboardApi {
     );
   }
 
-  updateShape(
-    boardId: string,
-    elementId: string,
-    shape: UpdateShapeDto
-  ) {
-    return this.http.patch<Shape>(
-      `${this.baseUrl}/elements/board/${boardId}/${elementId}/shape`,
-      shape
-    );
+updateShape(
+  boardId: string,
+  elementId: string,
+  shape: UpdateShapeDto
+): Observable<void> {
+  return this.http.patch<void>(
+    `${this.baseUrl}/elements/board/${boardId}/${elementId}/shape`,
+    shape
+  );
+}
 
-  }
-
-
-  updateStroke(
-    boardId: string,
-    elementId: string,
-    stroke: UpdateStrokeDto
-  ) {
-    return this.http.patch<Stroke>(
-      `${this.baseUrl}/elements/board/${boardId}/${elementId}/stroke`,
-      stroke
-    );
-  }
+updateStroke(
+  boardId: string,
+  elementId: string,
+  stroke: UpdateStrokeDto
+): Observable<void> {
+  return this.http.patch<void>(
+    `${this.baseUrl}/elements/board/${boardId}/${elementId}/stroke`,
+    stroke
+  );
+}
 
 
   deleteElement(boardId: string, elementId: string) {
@@ -69,6 +68,15 @@ export class WhiteboardApi {
       `${this.baseUrl}/elements/board/${boardId}`
     );
   }
-
+ isOwner(boardId: string) {
+    return this.http.get<boolean>(
+      `${this.baseUrl}/boards/${boardId}/is-owner`
+    );
+  }
+  canEdit(boardId: string) {
+    return this.http.get<boolean>(
+      `${this.baseUrl}/boards/${boardId}/can-edit`
+    );
+  }
 
 }

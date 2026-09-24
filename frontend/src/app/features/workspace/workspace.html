@@ -1,8 +1,13 @@
 <div class="min-h-screen bg-slate-950 px-6 py-8">
+
   <div class="mx-auto max-w-7xl">
 
+    <!-- ========================= -->
     <!-- Header -->
+    <!-- ========================= -->
+
     <div class="mb-8 flex items-center justify-between">
+
       <div>
         <h1 class="text-2xl font-semibold text-white">
           My Boards
@@ -13,24 +18,130 @@
         </p>
       </div>
 
-      <button
-        type="button"
-        class="rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white
-               transition hover:bg-indigo-500 focus:outline-none focus:ring-2
-               focus:ring-indigo-500"
-        (click)="openCreateDialog()"
-      >
-        + New Board
-      </button>
+      <div class="flex items-center gap-3">
+
+        <!-- Invitations -->
+
+        <button
+          type="button"
+          class="relative rounded-lg border border-slate-700
+                 px-4 py-2.5 text-sm font-medium text-slate-300
+                 transition hover:border-slate-600 hover:bg-slate-800
+                 hover:text-white"
+          (click)="openInvitations()"
+        >
+
+          Invitations
+
+          @if (invitations().length > 0) {
+
+            <span
+              class="ml-2 inline-flex h-5 min-w-5 items-center
+                     justify-center rounded-full bg-indigo-600
+                     px-1.5 text-xs font-medium text-white"
+            >
+              {{ invitations().length }}
+            </span>
+
+          }
+
+        </button>
+
+        <!-- New Board -->
+
+        <button
+          type="button"
+          class="rounded-lg bg-indigo-600 px-4 py-2.5
+                 text-sm font-medium text-white transition
+                 hover:bg-indigo-500 focus:outline-none
+                 focus:ring-2 focus:ring-indigo-500"
+          (click)="openCreateDialog()"
+        >
+          + New Board
+        </button>
+
+      </div>
+
     </div>
 
-    <!-- Empty State -->
-    @if (boards().length === 0) {
+
+    <!-- ========================= -->
+    <!-- Boards -->
+    <!-- ========================= -->
+
+    @if (boardsLoading()) {
+
+      <!-- Loading -->
+
+      <div
+        class="flex min-h-80 items-center justify-center
+               rounded-xl border border-slate-800
+               bg-slate-900/50"
+      >
+
+        <div class="text-center">
+
+          <div
+            class="mx-auto mb-3 h-8 w-8 animate-spin
+                   rounded-full border-2 border-slate-700
+                   border-t-indigo-500"
+          ></div>
+
+          <p class="text-sm text-slate-400">
+            Loading boards...
+          </p>
+
+        </div>
+
+      </div>
+
+    }
+
+    @else if (boardsError()) {
+
+      <!-- Error -->
+
+      <div
+        class="flex min-h-80 flex-col items-center justify-center
+               rounded-xl border border-red-500/20
+               bg-red-500/5"
+      >
+
+        <div
+          class="mb-3 flex h-10 w-10 items-center justify-center
+                 rounded-lg bg-red-500/10 text-red-400"
+        >
+          !
+        </div>
+
+        <p class="text-sm text-red-400">
+          {{ boardsError() }}
+        </p>
+
+        <button
+          type="button"
+          class="mt-4 rounded-lg bg-slate-800 px-4 py-2
+                 text-sm text-slate-300 transition
+                 hover:bg-slate-700 hover:text-white"
+          (click)="loadBoards()"
+        >
+          Retry
+        </button>
+
+      </div>
+
+    }
+
+    @else if (boards().length === 0) {
+
+      <!-- Empty State -->
+
       <div
         class="flex min-h-80 flex-col items-center justify-center
                rounded-xl border border-dashed border-slate-700
                bg-slate-900/50"
       >
+
         <div
           class="mb-4 flex h-12 w-12 items-center justify-center
                  rounded-xl bg-slate-800 text-2xl text-slate-400"
@@ -55,25 +166,35 @@
         >
           Create Board
         </button>
+
       </div>
+
     }
 
-    <!-- Board Grid -->
     @else {
-      <div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+
+      <!-- Board Grid -->
+
+      <div
+        class="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+      >
 
         @for (board of boards(); track board.id) {
+
           <div
-            class="group overflow-hidden rounded-xl border border-slate-800
-                   bg-slate-900 transition hover:-translate-y-1
-                   hover:border-slate-700 hover:shadow-xl"
+            class="group overflow-hidden rounded-xl border
+                   border-slate-800 bg-slate-900 transition
+                   hover:-translate-y-1 hover:border-slate-700
+                   hover:shadow-xl"
           >
 
             <!-- Board Preview -->
+
             <div
               class="relative flex h-40 items-center justify-center
                      overflow-hidden bg-slate-800"
             >
+
               <div class="text-center">
 
                 <div
@@ -81,6 +202,7 @@
                          justify-center rounded-lg bg-slate-700
                          text-slate-400"
                 >
+
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     fill="none"
@@ -89,6 +211,7 @@
                     stroke="currentColor"
                     class="h-5 w-5"
                   >
+
                     <path
                       stroke-linecap="round"
                       stroke-linejoin="round"
@@ -100,7 +223,9 @@
                       stroke-linejoin="round"
                       d="M7.5 15.75l3-3 2.25 2.25 1.5-1.5 2.25 2.25"
                     />
+
                   </svg>
+
                 </div>
 
                 <span class="text-xs text-slate-500">
@@ -108,15 +233,20 @@
                 </span>
 
               </div>
+
             </div>
 
+
             <!-- Board Information -->
+
             <div class="p-4">
 
               <div class="flex items-start justify-between gap-3">
 
                 <!-- Name + Date -->
+
                 <div class="min-w-0">
+
                   <h2
                     class="truncate text-sm font-semibold text-white"
                     [title]="board.name"
@@ -127,17 +257,22 @@
                   <p class="mt-1 text-xs text-slate-500">
                     Updated {{ board.updatedAt | date: 'mediumDate' }}
                   </p>
+
                 </div>
 
-                <!-- Delete Button -->
+
+                <!-- Delete -->
+
                 <button
                   type="button"
                   title="Delete board"
-                  class="shrink-0 rounded-md p-1.5 text-slate-500
-                         opacity-0 transition hover:bg-red-500/10
-                         hover:text-red-400 group-hover:opacity-100"
+                  class="shrink-0 rounded-md p-1.5
+                         text-slate-500 opacity-0 transition
+                         hover:bg-red-500/10 hover:text-red-400
+                         group-hover:opacity-100"
                   (click)="deleteBoard(board.id); $event.stopPropagation()"
                 >
+
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     fill="none"
@@ -146,6 +281,7 @@
                     stroke="currentColor"
                     class="h-4 w-4"
                   >
+
                     <path
                       stroke-linecap="round"
                       stroke-linejoin="round"
@@ -179,49 +315,63 @@
                       stroke-linejoin="round"
                       d="M13.5 11v5.25"
                     />
+
                   </svg>
+
                 </button>
 
               </div>
 
+
               <!-- Open Board -->
+
               <button
                 type="button"
-                class="mt-4 w-full rounded-lg border border-slate-700
-                       px-3 py-2 text-sm font-medium text-slate-300
-                       transition hover:border-indigo-500
-                       hover:bg-indigo-500/10 hover:text-indigo-400"
+                class="mt-4 w-full rounded-lg border
+                       border-slate-700 px-3 py-2 text-sm
+                       font-medium text-slate-300 transition
+                       hover:border-indigo-500 hover:bg-indigo-500/10
+                       hover:text-indigo-400"
                 (click)="openBoard(board.id)"
               >
                 Open Board
               </button>
 
             </div>
+
           </div>
+
         }
 
       </div>
+
     }
 
   </div>
 
+
+  <!-- ========================= -->
   <!-- Create Board Modal -->
+  <!-- ========================= -->
+
   @if (showCreateDialog) {
+
     <div
       class="fixed inset-0 z-50 flex items-center justify-center
              bg-black/60 px-4"
       (click)="closeCreateDialog()"
     >
 
-      <!-- Modal -->
       <div
         class="w-full max-w-md rounded-xl border border-slate-800
                bg-slate-900 p-6 shadow-2xl"
         (click)="$event.stopPropagation()"
       >
 
-        <!-- Modal Header -->
+        <!-- Header -->
+
         <div>
+
           <h2 class="text-lg font-semibold text-white">
             Create new board
           </h2>
@@ -229,13 +379,18 @@
           <p class="mt-1 text-sm text-slate-400">
             Give your board a name to get started.
           </p>
+
         </div>
 
-        <!-- Board Name -->
+
+        <!-- Name -->
+
         <div class="mt-5">
+
           <label
             for="boardName"
-            class="mb-2 block text-sm font-medium text-slate-300"
+            class="mb-2 block text-sm font-medium
+                   text-slate-300"
           >
             Board name
           </label>
@@ -254,16 +409,34 @@
                    focus:border-indigo-500 focus:ring-1
                    focus:ring-indigo-500"
           />
+
         </div>
 
-        <!-- Modal Actions -->
+
+        <!-- Error -->
+
+        @if (createBoardError()) {
+
+          <div
+            class="mt-4 rounded-lg border border-red-500/20
+                   bg-red-500/10 px-3 py-2.5 text-sm text-red-400"
+          >
+            {{ createBoardError() }}
+          </div>
+
+        }
+
+
+        <!-- Actions -->
+
         <div class="mt-6 flex justify-end gap-3">
 
           <button
             type="button"
+            [disabled]="createBoardLoading()"
             class="rounded-lg px-4 py-2 text-sm font-medium
                    text-slate-400 transition hover:bg-slate-800
-                   hover:text-white"
+                   hover:text-white disabled:opacity-50"
             (click)="closeCreateDialog()"
           >
             Cancel
@@ -271,20 +444,277 @@
 
           <button
             type="button"
-            [disabled]="!newBoardName.trim()"
+            [disabled]="
+              createBoardLoading() ||
+              !newBoardName.trim()
+            "
             class="rounded-lg bg-indigo-600 px-4 py-2
                    text-sm font-medium text-white transition
                    hover:bg-indigo-500 disabled:cursor-not-allowed
                    disabled:opacity-50"
             (click)="createBoard()"
           >
-            Create Board
+
+            @if (createBoardLoading()) {
+              Creating...
+            } @else {
+              Create Board
+            }
+
           </button>
 
         </div>
 
       </div>
+
     </div>
+
+  }
+
+
+  <!-- ========================= -->
+  <!-- Invitations Modal -->
+  <!-- ========================= -->
+
+  @if (showInvitations) {
+
+    <div
+      class="fixed inset-0 z-50 flex items-center justify-center
+             bg-black/60 px-4"
+      (click)="closeInvitations()"
+    >
+
+      <div
+        class="w-full max-w-lg rounded-xl border border-slate-800
+               bg-slate-900 p-6 shadow-2xl"
+        (click)="$event.stopPropagation()"
+      >
+
+        <!-- Header -->
+
+        <div class="flex items-start justify-between">
+
+          <div>
+
+            <h2 class="text-lg font-semibold text-white">
+              Invitations
+            </h2>
+
+            <p class="mt-1 text-sm text-slate-400">
+              Boards you've been invited to join.
+            </p>
+
+          </div>
+
+          <button
+            type="button"
+            title="Close"
+            class="rounded-md p-2 text-slate-500
+                   transition hover:bg-slate-800
+                   hover:text-white"
+            (click)="closeInvitations()"
+          >
+            ✕
+          </button>
+
+        </div>
+
+
+        <!-- Loading -->
+
+        @if (invitationsLoading()) {
+
+          <div class="py-12 text-center">
+
+            <div
+              class="mx-auto mb-3 h-8 w-8 animate-spin
+                     rounded-full border-2 border-slate-700
+                     border-t-indigo-500"
+            ></div>
+
+            <p class="text-sm text-slate-400">
+              Loading invitations...
+            </p>
+
+          </div>
+
+        }
+
+
+        <!-- Error -->
+
+        @else if (invitationsError()) {
+
+          <div class="py-12 text-center">
+
+            <div
+              class="mx-auto mb-3 flex h-10 w-10 items-center
+                     justify-center rounded-lg bg-red-500/10
+                     text-red-400"
+            >
+              !
+            </div>
+
+            <p class="text-sm text-red-400">
+              {{ invitationsError() }}
+            </p>
+
+            <button
+              type="button"
+              class="mt-4 rounded-lg bg-slate-800
+                     px-4 py-2 text-sm text-slate-300
+                     transition hover:bg-slate-700"
+              (click)="loadInvitations()"
+            >
+              Retry
+            </button>
+
+          </div>
+
+        }
+
+
+        <!-- Empty -->
+
+        @else if (invitations().length === 0) {
+
+          <div class="py-12 text-center">
+
+            <div
+              class="mx-auto mb-3 flex h-10 w-10 items-center
+                     justify-center rounded-lg bg-slate-800
+                     text-slate-500"
+            >
+              ✓
+            </div>
+
+            <p class="text-sm font-medium text-slate-300">
+              No pending invitations
+            </p>
+
+            <p class="mt-1 text-xs text-slate-500">
+              You're all caught up.
+            </p>
+
+          </div>
+
+        }
+
+
+        <!-- Invitation List -->
+
+        @else {
+
+          <div class="mt-5 space-y-3">
+
+            @for (
+              invitation of invitations();
+              track invitation.id
+            ) {
+
+              <div
+                class="rounded-lg border border-slate-800
+                       bg-slate-950 p-4"
+              >
+
+                <div class="flex items-start justify-between gap-4">
+
+                  <div class="min-w-0">
+
+                    <p class="text-sm font-medium text-white">
+                      Board invitation
+                    </p>
+
+                    <p class="mt-1 text-xs text-slate-500">
+                      You've been invited to join a board.
+                    </p>
+
+                    <div class="mt-2">
+
+                      <span
+                        class="inline-flex rounded-md bg-slate-800
+                               px-2 py-1 text-xs font-medium
+                               text-slate-300"
+                      >
+                        {{ invitation.permission }}
+                      </span>
+
+                    </div>
+
+                  </div>
+
+                </div>
+
+
+                <!-- Actions -->
+
+                <div class="mt-4 flex justify-end gap-2">
+
+                  <!-- Decline -->
+
+                  <button
+                    type="button"
+                    [disabled]="
+                      invitationActionLoading()?.id === invitation.id
+                    "
+                    class="rounded-lg px-3 py-2 text-sm font-medium
+                           text-slate-400 transition hover:bg-slate-800
+                           hover:text-white disabled:cursor-not-allowed
+                           disabled:opacity-50"
+                    (click)="declineInvitation(invitation.id)"
+                  >
+
+                    @if (
+                      invitationActionLoading()?.id === invitation.id &&
+                      invitationActionLoading()?.type === 'decline'
+                    ) {
+                      Declining...
+                    } @else {
+                      Decline
+                    }
+
+                  </button>
+
+
+                  <!-- Accept -->
+
+                  <button
+                    type="button"
+                    [disabled]="
+                      invitationActionLoading()?.id === invitation.id
+                    "
+                    class="rounded-lg bg-indigo-600 px-3 py-2
+                           text-sm font-medium text-white transition
+                           hover:bg-indigo-500 disabled:cursor-not-allowed
+                           disabled:opacity-50"
+                    (click)="acceptInvitation(invitation.id)"
+                  >
+
+                    @if (
+                      invitationActionLoading()?.id === invitation.id &&
+                      invitationActionLoading()?.type === 'accept'
+                    ) {
+                      Accepting...
+                    } @else {
+                      Accept
+                    }
+
+                  </button>
+
+                </div>
+
+              </div>
+
+            }
+
+          </div>
+
+        }
+
+      </div>
+
+    </div>
+
   }
 
 </div>

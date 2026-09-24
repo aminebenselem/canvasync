@@ -1,9 +1,6 @@
 <div class="relative w-full h-screen">
- <button
-    class="absolute top-20 left-20 z-100 px-4 py-2 bg-white text-black"
-    (click)="redraw()">
-    Redraw
-  </button>
+<button class="absolute top-0 left-0 mask-linear-from-stone-50 cursor-pointer w-full z-50"  (click)="sendTest()">Send Test</button>
+
   <canvas
     #canvas
     class="absolute inset-0 w-full h-full bg-slate-500"
@@ -14,7 +11,6 @@
     >
 
   </canvas>
-
    <app-toolbar
     class="absolute top-0 left-0 w-full z-50"
   [canUndo]="currentCanvas.undoStack.length > 0"

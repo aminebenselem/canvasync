@@ -5,18 +5,22 @@ export interface Point {
 }
 
 export interface Stroke {
+  id: string;
   points: Point[];
   color: string;
   width: number;
+  isSelected: boolean;
 }
 
 export interface Shape {
+  id: string;
   type: ShapeType;
   startPoint: Point;
   endPoint: Point;
   color: string;
   width: number;
   text?: string;
+  isSelected: boolean;
 }
 
 export interface CanvasState {
@@ -64,3 +68,23 @@ export type ShapeType =
   | 'arrow'
   | 'text'
   | 'sticky';
+
+  export type BoardPermission = 'VIEWER' | 'EDITOR';
+
+export type InvitationStatus = 'PENDING' | 'ACCEPTED' | 'DECLINED';
+
+export interface Invitation {
+  id: string;
+  boardId: string;
+  senderId: number;
+  userId: number;
+  permission: BoardPermission;
+  status: InvitationStatus;
+}
+
+export interface BoardMember {
+  userId: number;
+  username: string;
+  email: string;
+  permission: BoardPermission;
+}
