@@ -1,7 +1,7 @@
-package com.whiteboard.backend.auth.invitation.mapper;
+package com.whiteboard.backend.invitation.mapper;
 
-import com.whiteboard.backend.auth.invitation.Invitation;
-import com.whiteboard.backend.auth.invitation.dto.InvitationResponseDto;
+import com.whiteboard.backend.invitation.Invitation;
+import com.whiteboard.backend.invitation.dto.InvitationResponseDto;
 import org.springframework.stereotype.Component;
 
 import java.util.List;

@@ -1,6 +1,7 @@
 package com.whiteboard.backend.auth;
 
 import com.whiteboard.backend.user.User;
+import org.springframework.security.oauth2.core.converter.ClaimConversionService;
 import org.springframework.security.oauth2.jwt.JwtClaimsSet;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
@@ -27,7 +28,6 @@ public class JwtService {
                 .issuedAt(now)
                 .expiresAt(now.plusSeconds(3600))
                 .build();
-
         return jwtEncoder.encode(
                 JwtEncoderParameters.from(claims)
         ).getTokenValue();

@@ -1,4 +1,4 @@
-package com.whiteboard.backend.auth.invitation.exception;
+package com.whiteboard.backend.invitation.exception;
 
 public class InvitationNotFoundException extends RuntimeException {
     public InvitationNotFoundException(String message) {

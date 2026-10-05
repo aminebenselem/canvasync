@@ -3,8 +3,11 @@ package com.whiteboard.backend.config;
 import com.whiteboard.backend.auth.exception.EmailAlreadyExistsException;
 import com.whiteboard.backend.auth.exception.InvalidCredentialsException;
 import com.whiteboard.backend.auth.exception.UsernameAlreadyExistsException;
+import com.whiteboard.backend.invitation.exception.InvalidInvitationStateException;
+import com.whiteboard.backend.invitation.exception.InvitationNotFoundException;
 import com.whiteboard.backend.board.exception.BoardAccessDeniedException;
 import com.whiteboard.backend.board.exception.InvalidMembershipException;
+import com.whiteboard.backend.board.exception.UnauthorizedUserException;
 import com.whiteboard.backend.element.exception.ElementAccessDeniedException;
 import com.whiteboard.backend.element.exception.ElementNotFoundException;
 import com.whiteboard.backend.user.exception.UserNotFoundException;
@@ -80,6 +83,29 @@ public class GlobalExceptionHandler {
                 .status(HttpStatus.FORBIDDEN)
                 .body(ex.getMessage());
     }
-
+    @ExceptionHandler(UnauthorizedUserException.class)
+    public ResponseEntity<String> handleUnauthorized(
+            UnauthorizedUserException ex
+    ) {
+        return ResponseEntity
+                .status(HttpStatus.UNAUTHORIZED)
+                .body(ex.getMessage());
+    }
+    @ExceptionHandler(InvitationNotFoundException.class)
+    public ResponseEntity<String> handleInviteNoFound(
+            InvitationNotFoundException ex
+    ) {
+        return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
+                .body(ex.getMessage());
+    }
+    @ExceptionHandler(InvalidInvitationStateException.class)
+    public ResponseEntity<String> handleInvalidInvite(
+            InvalidInvitationStateException ex
+    ) {
+        return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
+                .body(ex.getMessage());
+    }
 
 }

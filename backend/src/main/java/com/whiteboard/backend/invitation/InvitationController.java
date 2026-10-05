@@ -1,9 +1,8 @@
-package com.whiteboard.backend.auth.invitation;
+package com.whiteboard.backend.invitation;
 
-import com.whiteboard.backend.auth.invitation.dto.InvitationRequestDto;
-import com.whiteboard.backend.auth.invitation.dto.InvitationResponseDto;
-import com.whiteboard.backend.auth.invitation.mapper.InvitationMapper;
-import com.whiteboard.backend.board.boardmember.BoardPermission;
+import com.whiteboard.backend.invitation.dto.InvitationRequestDto;
+import com.whiteboard.backend.invitation.dto.InvitationResponseDto;
+import com.whiteboard.backend.invitation.mapper.InvitationMapper;
 import com.whiteboard.backend.board.exception.UnauthorizedUserException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;

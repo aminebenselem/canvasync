@@ -1,6 +1,5 @@
-package com.whiteboard.backend.config;
+package com.whiteboard.backend.collaboration.config;
 
-import com.whiteboard.backend.collaboration.WebSocketAuthInterceptor;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.simp.config.ChannelRegistration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;

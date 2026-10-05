@@ -1,4 +1,4 @@
 package com.whiteboard.backend.collaboration.events;
 
-public record TestEvent() {
+public record TestEvent(String message) {
 }

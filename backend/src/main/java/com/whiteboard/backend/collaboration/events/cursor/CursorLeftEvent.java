@@ -1,4 +1,6 @@
 package com.whiteboard.backend.collaboration.events.cursor;
 
-public record CursorLeftEvent() {
-}
+
+public record CursorLeftEvent(
+        Long userId
+) {}

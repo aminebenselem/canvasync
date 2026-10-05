@@ -1,6 +1,8 @@
-package com.whiteboard.backend.collaboration;
+package com.whiteboard.backend.collaboration.config;
 
-import com.whiteboard.backend.board.BoardAccessPolicy;
+import com.whiteboard.backend.board.access.BoardAccessPolicyCachingService;
+import com.whiteboard.backend.board.exception.BoardAccessDeniedException;
+import com.whiteboard.backend.board.exception.UnauthorizedUserException;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
 import org.springframework.messaging.support.ChannelInterceptor;
@@ -18,14 +20,14 @@ import java.util.UUID;
 public class WebSocketAuthInterceptor implements ChannelInterceptor {
 
     private final JwtDecoder jwtDecoder;
-    private final BoardAccessPolicy boardAccessPolicy;
+    private final BoardAccessPolicyCachingService cachingService;
 
     public WebSocketAuthInterceptor(
             JwtDecoder jwtDecoder,
-            BoardAccessPolicy boardAccessPolicy
+            BoardAccessPolicyCachingService cachingService
     ) {
         this.jwtDecoder = jwtDecoder;
-        this.boardAccessPolicy = boardAccessPolicy;
+        this.cachingService = cachingService;
     }
 
     @Override
@@ -65,7 +67,7 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor {
         if (authorization == null ||
                 !authorization.startsWith("Bearer ")) {
 
-            throw new IllegalArgumentException(
+            throw new UnauthorizedUserException(
                     "Missing or invalid Authorization header"
             );
         }
@@ -74,7 +76,6 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor {
 
         Jwt jwt = jwtDecoder.decode(token);
 
-        // Whatever claim you use as your user ID
         Long userId = Long.valueOf(
                 jwt.getSubject()
         );
@@ -96,12 +97,13 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor {
                 (Authentication) accessor.getUser();
 
         if (authentication == null) {
-            throw new IllegalArgumentException(
+            throw new UnauthorizedUserException(
                     "Unauthenticated WebSocket session"
             );
         }
 
-        String destination = accessor.getDestination();
+        String destination =
+                accessor.getDestination();
 
         if (destination == null) {
             throw new IllegalArgumentException(
@@ -109,20 +111,45 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor {
             );
         }
 
-        String prefix = "/topic/boards/";
+        String prefix =
+                "/topic/boards/";
 
         if (!destination.startsWith(prefix)) {
             return;
         }
 
-        String boardIdString =
-                destination.substring(prefix.length());
+        String[] parts =
+                destination
+                        .substring(prefix.length())
+                        .split("/");
+
+        if (parts.length != 2) {
+            throw new IllegalArgumentException(
+                    "Invalid board subscription destination"
+            );
+        }
+
+        String channel = parts[1];
+
+        if (!channel.equals("cursor")
+                && !channel.equals("cursor-left")
+                && !channel.equals("elements")
+                && !channel.equals("drawing")) {
+
+            throw new IllegalArgumentException(
+                    "Invalid board subscription channel"
+            );
+        }
 
         UUID boardId;
 
         try {
-            boardId = UUID.fromString(boardIdString);
+
+            boardId =
+                    UUID.fromString(parts[0]);
+
         } catch (IllegalArgumentException e) {
+
             throw new IllegalArgumentException(
                     "Invalid board ID"
             );
@@ -132,10 +159,25 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor {
                 ((WebSocketAuthentication) authentication)
                         .getUserId();
 
-        if (!boardAccessPolicy.canView(boardId, userId)) {
-            throw new IllegalArgumentException(
-                    "User is not allowed to subscribe to this board"
+        cachingService.cachePermission(
+                boardId,
+                userId
+        );
+
+        if (!cachingService.canView(
+                boardId,
+                userId
+        )) {
+
+            throw new BoardAccessDeniedException(
+                    "User cannot view this board"
             );
         }
+
+        accessor.getSessionAttributes()
+                .put(
+                        "boardId",
+                        boardId.toString()
+                );
     }
 }

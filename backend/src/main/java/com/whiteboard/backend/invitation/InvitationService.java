@@ -1,9 +1,11 @@
-package com.whiteboard.backend.auth.invitation;
+package com.whiteboard.backend.invitation;
 
-import com.whiteboard.backend.auth.invitation.exception.InvalidInvitationStateException;
-import com.whiteboard.backend.auth.invitation.exception.InvitationNotFoundException;
+import com.whiteboard.backend.board.boardmember.BoardMember;
+import com.whiteboard.backend.board.boardmember.BoardMemberRepository;
+import com.whiteboard.backend.invitation.exception.InvalidInvitationStateException;
+import com.whiteboard.backend.invitation.exception.InvitationNotFoundException;
 import com.whiteboard.backend.board.Board;
-import com.whiteboard.backend.board.BoardAccessPolicy;
+import com.whiteboard.backend.board.access.BoardAccessPolicy;
 import com.whiteboard.backend.board.BoardService;
 import com.whiteboard.backend.board.boardmember.BoardPermission;
 import com.whiteboard.backend.board.exception.BoardAccessDeniedException;
@@ -22,11 +24,13 @@ public class InvitationService {
     private final UserService userService;
     private final BoardAccessPolicy boardAccessPolicy;
     private final BoardService boardService;
-    public InvitationService(InvitationRepository invitationRepository, UserService userService, BoardAccessPolicy boardAccessPolicy, BoardService boardService) {
+    private final BoardMemberRepository boardMemberRepository;
+    public InvitationService(InvitationRepository invitationRepository, UserService userService, BoardAccessPolicy boardAccessPolicy, BoardService boardService, BoardMemberRepository boardMemberRepository) {
         this.invitationRepository = invitationRepository;
         this.userService = userService;
         this.boardAccessPolicy = boardAccessPolicy;
         this.boardService = boardService;
+        this.boardMemberRepository = boardMemberRepository;
     }
     @Transactional
     public  Invitation sendInvitation(String userEmail,UUID boardId ,Long senderId, BoardPermission permission) {
@@ -48,19 +52,41 @@ public class InvitationService {
         return invitationRepository.save(invitation);
     }
     @Transactional
-    public Invitation acceptInvitation(UUID invitationId, Long userId ) {
-        Invitation invitation = getInvitation(invitationId);
+    public Invitation acceptInvitation(UUID invitationId, Long userId) {
+
+        Invitation invitation = invitationRepository.findById(invitationId)
+                .orElseThrow();
         if (!invitation.getUser().getId().equals(userId)) {
-            throw new InvitationNotFoundException("User does not have permission to accept this invitation.");
-        }
-        if (invitation.getStatus() != InvitationStatus.PENDING) {
-            throw new InvalidInvitationStateException(
-                    "Invitation is not pending."
+            throw new InvitationNotFoundException(
+                    "User does not have permission to accept this invitation."
             );
         }
+        if (invitation.getStatus() != InvitationStatus.PENDING) {
+            throw new IllegalStateException("Invitation is no longer pending");
+        }
+
+        BoardMember member = boardMemberRepository
+                .findByBoardIdAndUserId(
+                        invitation.getBoard().getId(),
+                        userId
+                )
+                .orElse(null);
+
+        if (member != null) {
+            // Already a member → update permission
+            member.setPermission(invitation.getPermission());
+        } else {
+            // Not a member → create membership
+            member = new BoardMember();
+            member.setBoard(invitation.getBoard());
+            member.setUser(invitation.getUser());
+            member.setPermission(invitation.getPermission());
+        }
+
+        boardMemberRepository.save(member);
+
         invitation.setStatus(InvitationStatus.ACCEPTED);
-         boardService.addMemberInternal(invitation.getBoard().getId(),userId, invitation.getPermission());
-        return invitationRepository.save(invitation);
+        return invitation;
     }
     @Transactional
     public Invitation declineInvitation(UUID invitationId, Long userId) {

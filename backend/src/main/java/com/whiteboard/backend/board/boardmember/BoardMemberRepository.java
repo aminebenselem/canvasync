@@ -15,7 +15,9 @@ public interface BoardMemberRepository
         extends JpaRepository<BoardMember, UUID> {
 
 
-    List<Board> findBoardsByUserId(Long userId);
+    List<BoardMember> findByUserId(Long userId);
+    List<BoardMember> findByBoardId(UUID boardId);
+
 
     Optional<BoardMember> findByBoardIdAndUserId(
             UUID boardId,
@@ -52,6 +54,15 @@ public interface BoardMemberRepository
             @Param("userId") Long userId
     );
 
-}
+    @Query("""
+    SELECT bm.permission
+    FROM BoardMember bm
+    WHERE bm.board.id = :boardId
+      AND bm.user.id = :userId
+""")
+    Optional<BoardPermission> findPermissionByBoardIdAndUserId(
+            @Param("boardId") UUID boardId,
+            @Param("userId") Long userId
+    );}
 
 

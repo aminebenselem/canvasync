@@ -1,12 +1,11 @@
 package com.whiteboard.backend.board;
 
-import com.whiteboard.backend.board.dto.AddMemberDto;
 import com.whiteboard.backend.board.dto.BoardDto;
+import com.whiteboard.backend.board.dto.BoardMemberDto;
 import com.whiteboard.backend.board.dto.CreateBoardDto;
 import com.whiteboard.backend.board.dto.UpdateMemberPermissionDto;
+import com.whiteboard.backend.board.exception.UnauthorizedUserException;
 import com.whiteboard.backend.board.mapper.BoardMapper;
-import com.whiteboard.backend.user.dto.UserDto;
-import com.whiteboard.backend.user.mapper.UserMapper;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
@@ -20,16 +19,14 @@ public class BoardController {
 
     private final BoardService boardService;
     private final BoardMapper boardMapper;
-    private final UserMapper userMapper;
 
     public BoardController(
             BoardService boardService,
-            BoardMapper boardMapper,
-            UserMapper userMapper
+            BoardMapper boardMapper
     ) {
         this.boardService = boardService;
         this.boardMapper = boardMapper;
-        this.userMapper = userMapper;
+
     }
 
     @PostMapping
@@ -67,27 +64,14 @@ public class BoardController {
         );
     }
 
-    @PostMapping("/{id}/members")
-    public void addMember(
-            @PathVariable UUID id,
-            @AuthenticationPrincipal Jwt jwt,
-            @RequestBody AddMemberDto dto
-    ) {
-        Long userId = getUserId(jwt);
-
-        boardService.addMember(id, userId, dto);
-    }
-
     @GetMapping("/{id}/members")
-    public List<UserDto> getMembers(
+    public List<BoardMemberDto> getMembers(
             @PathVariable UUID id,
             @AuthenticationPrincipal Jwt jwt
     ) {
         Long userId = getUserId(jwt);
 
-        return userMapper.toDtoList(
-                boardService.listBoardMembers(id, userId)
-        );
+        return boardService.listBoardMembers(id, userId);
     }
 
     @DeleteMapping("/{id}/members/{memberId}")
@@ -121,8 +105,29 @@ public class BoardController {
 
         boardService.deleteBoard(id, userId);
     }
+    @GetMapping("/{boardId}/can-edit")
+    public boolean canEdit(
+            @PathVariable UUID boardId,
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+        Long userId = getUserId(jwt);
+        return boardService.canEdit(boardId, userId);
+    }
+    @GetMapping("/{boardId}/is-owner")
+    public boolean isOwner(
+            @PathVariable UUID boardId,
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+        Long userId = getUserId(jwt);
+        return boardService.isOwner(boardId, userId);
+    }
 
     private Long getUserId(Jwt jwt) {
+        if( jwt == null || jwt.getSubject() == null) {
+            throw new UnauthorizedUserException("JWT or subject is null");
+        }
         return Long.parseLong(jwt.getSubject());
     }
+
+
 }

@@ -1,11 +1,15 @@
 package com.whiteboard.backend.board;
 
+import com.whiteboard.backend.board.access.BoardAccessPolicy;
 import com.whiteboard.backend.board.boardmember.BoardMember;
 import com.whiteboard.backend.board.boardmember.BoardMemberRepository;
+import com.whiteboard.backend.board.boardmember.BoardPermission;
 import com.whiteboard.backend.board.dto.AddMemberDto;
+import com.whiteboard.backend.board.dto.BoardMemberDto;
 import com.whiteboard.backend.board.dto.UpdateMemberPermissionDto;
 import com.whiteboard.backend.board.exception.BoardAccessDeniedException;
 import com.whiteboard.backend.board.exception.InvalidMembershipException;
+import com.whiteboard.backend.board.mapper.BoardMemberMapper;
 import com.whiteboard.backend.user.User;
 import com.whiteboard.backend.user.UserService;
 import jakarta.transaction.Transactional;
@@ -23,17 +27,19 @@ public class BoardService {
     private final BoardMemberRepository boardMemberRepository;
     private final UserService userService;
     private final BoardAccessPolicy boardAccessPolicy;
+    private final BoardMemberMapper boardMemberMapper;
 
     public BoardService(
             BoardRepository boardRepository,
             BoardMemberRepository boardMemberRepository,
             UserService userService,
-            BoardAccessPolicy boardAccessPolicy
+            BoardAccessPolicy boardAccessPolicy, BoardMemberMapper boardMemberMapper
     ) {
         this.boardRepository = boardRepository;
         this.boardMemberRepository = boardMemberRepository;
         this.userService = userService;
         this.boardAccessPolicy = boardAccessPolicy;
+        this.boardMemberMapper = boardMemberMapper;
     }
 
     public Board createBoard(String name, Long ownerId) {
@@ -53,7 +59,10 @@ public class BoardService {
     public List<Board> getUserBoards(Long userId) {
         List<Board> boards = new ArrayList<>();
         boards.addAll(boardRepository.findByOwnerId(userId));
-        boards.addAll(boardMemberRepository.findBoardsByUserId(userId));
+        List<BoardMember> memberships = boardMemberRepository.findByUserId(userId);
+        for (BoardMember membership : memberships) {
+            boards.add(membership.getBoard());
+        }
         return boards;
     }
 
@@ -73,20 +82,32 @@ public class BoardService {
             );
         }
 
+        addMemberInternal(
+                boardId,
+                addMemberDto.memberId(),
+                addMemberDto.permission()
+        );
+    }
+
+    public void addMemberInternal(
+            UUID boardId,
+            Long memberId,
+            BoardPermission permission
+    ) {
         Board board = boardRepository.findById(boardId)
                 .orElseThrow(() ->
                         new InvalidMembershipException("Board not found"));
 
-        User newMember = userService.getUserEntity(addMemberDto.memberId());
+        User member = userService.getUserEntity(memberId);
 
         BoardMember boardMember = new BoardMember();
         boardMember.setBoard(board);
-        boardMember.setPermission(addMemberDto.permission());
-        boardMember.setUser(newMember);
+        boardMember.setPermission(permission);
+        boardMember.setUser(member);
 
         boardMemberRepository.save(boardMember);
     }
-
+    @Transactional
     public void removeMember(
             UUID boardId,
             Long ownerId,
@@ -141,16 +162,24 @@ public class BoardService {
         boardRepository.deleteById(boardId);
     }
 
-    public List<User> listBoardMembers(
+    @Transactional
+    public List<BoardMemberDto> listBoardMembers(
             UUID boardId,
             Long userId
     ) {
-        if (!boardAccessPolicy.isOwner(boardId, userId)) {
+        if (!boardAccessPolicy.canView(boardId, userId)) {
             throw new BoardAccessDeniedException(
                     "Only the owner can list members"
             );
         }
 
-        return boardMemberRepository.findUsersByBoardId(boardId);
+        return boardMemberMapper.toDtoList(boardMemberRepository.findByBoardId(boardId));
+    }
+
+    public boolean isOwner(UUID boardId, Long userId) {
+        return boardAccessPolicy.isOwner(boardId, userId);
+    }
+    public boolean canEdit(UUID boardId, Long userId) {
+        return boardAccessPolicy.canEdit(boardId, userId);
     }
 }

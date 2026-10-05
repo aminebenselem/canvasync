@@ -1,4 +1,4 @@
-package com.whiteboard.backend.auth.invitation.dto;
+package com.whiteboard.backend.invitation.dto;
 
 import com.whiteboard.backend.board.boardmember.BoardPermission;
 

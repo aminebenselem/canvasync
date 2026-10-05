@@ -1,5 +1,6 @@
 package com.whiteboard.backend.user;
 
+import com.whiteboard.backend.board.exception.UnauthorizedUserException;
 import com.whiteboard.backend.user.dto.UserDto;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -20,8 +21,15 @@ public class UserController {
     @GetMapping("/me")
     public UserDto getCurrentUser(@AuthenticationPrincipal Jwt jwt) {
 
-        Long userId = Long.parseLong(Objects.requireNonNull(jwt.getSubject()));
+        Long userId =getUserId(jwt);
 
         return userService.getUser(userId);
+    }
+    private Long getUserId(Jwt jwt) {
+        if( jwt == null || jwt.getSubject() == null) {
+            throw new UnauthorizedUserException("JWT or subject is null");
+        }
+        return Long.parseLong(jwt.getSubject());
+
     }
 }

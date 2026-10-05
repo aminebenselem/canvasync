@@ -1,4 +1,4 @@
-package com.whiteboard.backend.auth.invitation.exception;
+package com.whiteboard.backend.invitation.exception;
 
 public class InvalidInvitationStateException extends RuntimeException {
     public InvalidInvitationStateException(String message) {

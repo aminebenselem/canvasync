@@ -1,4 +1,4 @@
-package com.whiteboard.backend.collaboration.events.redis;
+package com.whiteboard.backend.collaboration.redis;
 
 import java.util.UUID;
 

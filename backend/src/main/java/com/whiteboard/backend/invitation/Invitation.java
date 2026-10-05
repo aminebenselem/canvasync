@@ -1,4 +1,4 @@
-package com.whiteboard.backend.auth.invitation;
+package com.whiteboard.backend.invitation;
 
 import com.whiteboard.backend.board.Board;
 import com.whiteboard.backend.board.boardmember.BoardPermission;

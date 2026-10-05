@@ -1,4 +1,4 @@
-package com.whiteboard.backend.auth.invitation;
+package com.whiteboard.backend.invitation;
 
 public enum InvitationStatus {
     PENDING,

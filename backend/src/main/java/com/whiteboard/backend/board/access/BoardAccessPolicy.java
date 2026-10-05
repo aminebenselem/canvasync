@@ -1,7 +1,10 @@
-package com.whiteboard.backend.board;
+package com.whiteboard.backend.board.access;
 
 
+import com.whiteboard.backend.board.Board;
+import com.whiteboard.backend.board.BoardRepository;
 import com.whiteboard.backend.board.boardmember.BoardMemberRepository;
+import com.whiteboard.backend.board.boardmember.BoardPermission;
 import com.whiteboard.backend.board.exception.BoardAccessDeniedException;
 import org.springframework.stereotype.Service;
 
@@ -34,7 +37,12 @@ public class BoardAccessPolicy {
   public  boolean canEdit(UUID boardId, Long userId) {
         return boardMemberRepository.isEditorOrOwner(boardId, userId);
     }
-
+public BoardPermission getBoardPermission(UUID boardId, Long userId) {
+        if(this.isOwner(boardId, userId)) {
+            return BoardPermission.EDITOR;
+        }
+        return boardMemberRepository.findPermissionByBoardIdAndUserId(boardId, userId).orElseThrow(() -> new BoardAccessDeniedException("Access denied to the board"));
+}
 
 
 

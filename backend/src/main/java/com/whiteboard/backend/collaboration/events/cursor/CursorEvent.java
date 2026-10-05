@@ -1,4 +1,4 @@
-package com.whiteboard.backend.collaboration.events;
+package com.whiteboard.backend.collaboration.events.cursor;
 
 
 public record CursorEvent(
