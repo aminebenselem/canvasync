@@ -3,18 +3,20 @@ import {
   Component,
   ElementRef,
   HostListener,
+  OnDestroy,
   OnInit,
   ViewChild
 } from '@angular/core';
 
 import { Toolbar, ToolType } from '../toolbar/toolbar';
-import { Viewport, Stroke, Point, CanvasState, Shape, ElementType, ShapeType } from './models';
+import { Viewport, Stroke, Point, CanvasState, Shape, ElementType, ShapeType, CursorMovedEvent, DrawingBroadcast, DrawingEvent } from './models';
 import { Bounds, CanvasRenderer, ResizeHandle } from '../../../services/canvas-renderer';
 import { WhiteboardApi } from '../../../services/whiteboard-api';
 import { ActivatedRoute } from '@angular/router';
+import { Subscription } from 'rxjs';
 import { CreateShapeDto, CreateStrokeDto } from '../../../services/dto/dto';
 import { Element } from './models';
-import { CollaborationService } from '../../../services/collaboration-service';
+import { CollaborationService, ElementChangeEvent } from '../../../services/collaboration-service';
 
 /** Geometry of the selected element at gesture start; never mutated. */
 interface Geometry {
@@ -42,13 +44,19 @@ interface Gesture {
   styleUrl: './canvas.css',
 })
 
-export class Canvas implements AfterViewInit, OnInit {
+export class Canvas implements AfterViewInit, OnInit, OnDestroy {
 
   constructor(private canvasRenderer: CanvasRenderer,
     private whiteboardApi: WhiteboardApi,
     private route: ActivatedRoute,
     private collaborationService: CollaborationService
   ) { }
+
+  private subscriptions = new Subscription();
+
+  get canModify(): boolean {
+    return this.isOwner || this.canEdit;
+  }
 
   isOwner: boolean = false;
   canEdit: boolean = false;
@@ -104,15 +112,38 @@ export class Canvas implements AfterViewInit, OnInit {
   // -------------------------
 
   @HostListener('window:resize')
-  onResize() {
-    const canvas = this.canvas.nativeElement;
+onResize(): void {
+  const canvas =
+    this.canvas.nativeElement;
 
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+  const cursorCanvas =
+    this.cursorCanvas.nativeElement;
 
-    this.redraw();
-  }
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
 
+  cursorCanvas.width = window.innerWidth;
+  cursorCanvas.height = window.innerHeight;
+
+  this.redraw();
+  this.renderRemoteCursors();
+}
+  @ViewChild('cursorCanvas')
+cursorCanvas!: ElementRef<HTMLCanvasElement>;
+
+private cursorCtx!: CanvasRenderingContext2D;
+
+remoteCursors = new Map<number, CursorMovedEvent>();
+private remoteStrokes =
+  new Map<number, Stroke>();
+
+private remoteShapes =
+  new Map<number, Shape>();
+private remoteTransforms =
+  new Map<
+    number,
+    Shape | Stroke
+  >();
   @HostListener('window:keydown', ['$event'])
   onKeyDown(event: KeyboardEvent) {
 
@@ -162,6 +193,18 @@ export class Canvas implements AfterViewInit, OnInit {
       return;
     }
 
+    if (event.key === 'Delete' && this.canModify) {
+      const tag = (event.target as HTMLElement | null)?.tagName;
+
+      if (tag === 'INPUT' || tag === 'TEXTAREA') {
+        return;
+      }
+
+      event.preventDefault();
+      this.deleteSelected(element);
+      return;
+    }
+
     if (
       event.key === 'Enter' &&
       this.isShape(element) &&
@@ -173,27 +216,145 @@ export class Canvas implements AfterViewInit, OnInit {
   }
 
   ngOnInit() {
-    this.boardId = this.route.snapshot.paramMap.get('boardId')!;
-    this.loadBoardElements();
-    console.log(this.currentCanvas);
-    this.isBoardOwner(this.boardId)
-    this.caneEditBoard(this.boardId)
-    this.collaborationService.connectToBoard(this.boardId);
-  }
-sendTest(): void {
-  this.collaborationService.sendTest();
+  this.getCurrentUserId();
+
+  this.boardId =
+    this.route.snapshot.paramMap.get('boardId')!;
+
+  this.loadBoardElements();
+
+  this.isBoardOwner(this.boardId);
+  this.caneEditBoard(this.boardId);
+
+  this.subscriptions.add(
+    this.collaborationService.elements$
+      .subscribe(event => {
+        this.applyRemoteChange(event);
+      })
+  );
+
+  this.subscriptions.add(
+    this.collaborationService.cursor$
+      .subscribe(() => {
+        this.renderRemoteCursors();
+      })
+  );
+this.subscriptions.add(
+  this.collaborationService.drawing$.subscribe(
+    event => {
+      this.handleRemoteDrawing(event);
+    }
+  )
+);
+  this.collaborationService.connectToBoard(
+    this.boardId
+  );
 }
-  ngAfterViewInit() {
 
+  ngOnDestroy() {
+    this.subscriptions.unsubscribe();
+    this.collaborationService.disconnect();
 
-    const canvas = this.canvas.nativeElement;
+    if (this.caretInterval) {
+      clearInterval(this.caretInterval);
+      this.caretInterval = null;
+    }
+  }
+private renderRemoteCursors(): void {
+  const canvas =
+    this.cursorCanvas.nativeElement;
 
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+  const ctx =
+    this.cursorCtx;
 
-    this.redraw();
+  if (!ctx) {
+    return;
   }
 
+  ctx.clearRect(
+    0,
+    0,
+    canvas.width,
+    canvas.height
+  );
+
+  ctx.save();
+
+  for (
+    const cursor
+    of this.collaborationService.getRemoteCursors().values()
+  ) {
+
+    const screenX =
+      cursor.x * this.viewport.zoom +
+      this.viewport.offsetX;
+
+    const screenY =
+      cursor.y * this.viewport.zoom +
+      this.viewport.offsetY;
+
+    // Cursor arrow
+    ctx.beginPath();
+
+    ctx.moveTo(screenX, screenY);
+    ctx.lineTo(screenX, screenY + 16);
+    ctx.lineTo(screenX + 5, screenY + 12);
+    ctx.lineTo(screenX + 10, screenY + 20);
+    ctx.lineTo(screenX + 14, screenY + 18);
+    ctx.lineTo(screenX + 9, screenY + 10);
+    ctx.lineTo(screenX + 16, screenY + 10);
+    ctx.closePath();
+
+    ctx.fillStyle = '#000000';
+    ctx.fill();
+
+    // Username
+    ctx.font = '12px Arial';
+    ctx.fillStyle = '#000000';
+
+    ctx.fillText(
+      cursor.username,
+      screenX + 18,
+      screenY + 5
+    );
+  }
+
+  ctx.restore();
+}
+getCurrentUserId(): string | null {
+  const token = localStorage.getItem('access_token');
+  if (!token) {
+    return null;
+  }
+
+  const payload = JSON.parse(atob(token.split('.')[1]));
+  localStorage.setItem('userId', payload.sub);
+  return payload.sub;
+}
+
+sendCursorEvent(x: number, y: number): void {
+  this.collaborationService.sendCursorEvent(x, y);
+}
+
+ngAfterViewInit(): void {
+  const canvas =
+    this.canvas.nativeElement;
+
+  const cursorCanvas =
+    this.cursorCanvas.nativeElement;
+
+  this.cursorCtx =
+    cursorCanvas.getContext('2d')!;
+
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+
+  cursorCanvas.width = window.innerWidth;
+  cursorCanvas.height = window.innerHeight;
+
+  this.redraw();
+  this.renderRemoteCursors();
+}
   // -------------------------
   // Mouse events
   // -------------------------
@@ -239,7 +400,7 @@ sendTest(): void {
   }
 
   onMouseMove(event: MouseEvent) {
-
+     this.sendCursorEvent(event.offsetX, event.offsetY);
     if (this.isPanning) {
       this.pan(event);
       return;
@@ -294,7 +455,7 @@ sendTest(): void {
   }
 
   onDoubleClick(event: MouseEvent) {
-    if (!this.isOwner) {
+    if (!this.canModify) {
       return;
     }
     if (this.activeTool !== 'select' && this.activeTool !== 'text') {
@@ -346,149 +507,281 @@ sendTest(): void {
   // Drawing
   // -------------------------
 
-  startStroke(event: MouseEvent) {
-    if (event.button !== 0) {
-      return;
-    }
+startStroke(event: MouseEvent): void {
 
-    const ctx = this.canvas.nativeElement.getContext('2d');
-
-    if (!ctx) {
-      return;
-    }
-
-    const point = this.screenToWorld(event);
-
-    this.isDrawing = true;
-
-    ctx.beginPath();
-    ctx.moveTo(point.x, point.y);
-
-    this.currentStroke = {
-      id: '',
-      points: [point],
-      color: this.strokeColor,
-      width: this.strokeWidth,
-      isSelected: false
-    };
-
-    ctx.strokeStyle = this.currentStroke.color;
-    ctx.lineWidth = this.currentStroke.width;
+  if (event.button !== 0) {
+    return;
   }
 
-  drawStroke(event: MouseEvent) {
-    const ctx = this.canvas.nativeElement.getContext('2d');
+  const ctx =
+    this.canvas.nativeElement
+      .getContext('2d');
 
-    if (!ctx) {
-      return;
-    }
-
-    const point = this.screenToWorld(event);
-
-    ctx.lineTo(point.x, point.y);
-    ctx.stroke();
-
-    if (this.currentStroke) {
-      this.currentStroke.points.push(point);
-    }
+  if (!ctx) {
+    return;
   }
 
-  finishStroke() {
-    this.isDrawing = false;
+  const point =
+    this.screenToWorld(event);
 
-    const ctx = this.canvas.nativeElement.getContext('2d');
+  this.isDrawing = true;
 
-    if (!ctx) {
-      return;
-    }
+  this.currentStroke = {
+    id: '',
 
-    ctx.closePath();
+    points: [
+      point
+    ],
 
-    if (this.currentStroke) {
-      this.currentCanvas.undoStack.push(
-        this.createSnapshot()
-      );
+    color:
+      this.strokeColor,
 
-      this.createStroke(this.currentStroke);
+    width:
+      this.strokeWidth,
 
-      this.currentCanvas.redoStack = [];
+    isSelected: false
+  };
 
-      this.currentStroke = null;
-    }
+  this.collaborationService.sendDrawingStart(
+    point,
+    this.currentStroke.color,
+    this.currentStroke.width
+  );
+
+  ctx.beginPath();
+
+  ctx.moveTo(
+    point.x,
+    point.y
+  );
+
+  ctx.strokeStyle =
+    this.currentStroke.color;
+
+  ctx.lineWidth =
+    this.currentStroke.width;
+}
+drawStroke(event: MouseEvent): void {
+
+  const ctx =
+    this.canvas.nativeElement
+      .getContext('2d');
+
+  if (!ctx) {
+    return;
   }
 
-  startShape(event: MouseEvent) {
-    if (event.button !== 0) {
-      return;
-    }
+  const point =
+    this.screenToWorld(event);
 
-    const ctx = this.canvas.nativeElement.getContext('2d');
+  ctx.lineTo(
+    point.x,
+    point.y
+  );
 
-    if (!ctx) {
-      return;
-    }
+  ctx.stroke();
 
-    const point = this.screenToWorld(event);
+  if (this.currentStroke) {
 
-    ctx.beginPath();
-    ctx.moveTo(point.x, point.y);
-
-    this.currentShape = {
-      id: '',
-      type: this.activeTool as 'rectangle' | 'ellipse' | 'line' | 'arrow' | 'text' | 'sticky',
-      startPoint: point,
-      endPoint: point,
-      color: this.strokeColor,
-      width: this.strokeWidth,
-      text: '',
-      isSelected: false
-    };
-
-    ctx.strokeStyle = this.currentShape.color;
-    ctx.lineWidth = this.currentShape.width;
-  }
-
-  drawShape(event: MouseEvent) {
-    const ctx = this.canvas.nativeElement.getContext('2d');
-
-    if (!ctx) {
-      return;
-    }
-
-    const point = this.screenToWorld(event);
-
-    if (this.currentShape) {
-      this.currentShape.endPoint = point;
-    }
-
-    this.canvasRenderer.renderShapes(
-      ctx,
-      this.currentCanvas.shapes.concat(
-        this.currentShape ? [this.currentShape] : []
-      )
+    this.currentStroke.points.push(
+      point
     );
   }
 
-  finishShape() {
-    const ctx = this.canvas.nativeElement.getContext('2d');
+  this.collaborationService.sendStrokePoint(
+    point
+  );
+}
+  finishStroke(): void {
 
-    if (!ctx) {
-      return;
-    }
+  this.isDrawing = false;
 
-    ctx.closePath();
+  const ctx =
+    this.canvas.nativeElement
+      .getContext('2d');
 
-    if (this.currentShape) {
-      this.currentCanvas.undoStack.push(
-        this.createSnapshot()
-      );
-
-      this.createShape(this.currentShape);
-      this.currentCanvas.redoStack = [];
-
-      this.currentShape = null;
-    }
+  if (!ctx) {
+    return;
   }
+
+  ctx.closePath();
+
+  if (!this.currentStroke) {
+    return;
+  }
+
+  /*
+   * Make sure the last point reaches
+   * the remote client even when it was
+   * inside the throttle window.
+   */
+  const finalPoint =
+    this.currentStroke.points[
+      this.currentStroke.points.length - 1
+    ];
+
+  if (finalPoint) {
+
+    this.collaborationService
+      .sendStrokePointFinal(
+        finalPoint
+      );
+  }
+
+  this.currentCanvas.undoStack.push(
+    this.createSnapshot()
+  );
+
+  this.createStroke(
+    this.currentStroke
+  );
+
+  this.collaborationService.sendDrawingEnd(
+    'STROKE'
+  );
+
+  this.currentCanvas.redoStack = [];
+
+  this.currentStroke = null;
+}
+
+  startShape(event: MouseEvent): void {
+
+  if (event.button !== 0) {
+    return;
+  }
+
+  const ctx =
+    this.canvas.nativeElement
+      .getContext('2d');
+
+  if (!ctx) {
+    return;
+  }
+
+  const point =
+    this.screenToWorld(event);
+
+  ctx.beginPath();
+
+  ctx.moveTo(
+    point.x,
+    point.y
+  );
+
+  this.currentShape = {
+
+    id: '',
+
+    type:
+      this.activeTool as
+      'rectangle'
+      | 'ellipse'
+      | 'line'
+      | 'arrow'
+      | 'text'
+      | 'sticky',
+
+    startPoint:
+      point,
+
+    endPoint:
+      point,
+
+    color:
+      this.strokeColor,
+
+    width:
+      this.strokeWidth,
+
+    text: '',
+
+    isSelected: false
+  };
+
+  this.collaborationService.sendShapeStart(
+    this.currentShape
+  );
+}
+
+ drawShape(event: MouseEvent): void {
+
+  const point =
+    this.screenToWorld(event);
+
+  if (!this.currentShape) {
+    return;
+  }
+
+  this.currentShape.endPoint =
+    point;
+
+  this.collaborationService
+    .sendShapeUpdate(
+      this.currentShape
+    );
+
+  this.redraw();
+
+  const ctx =
+    this.canvas.nativeElement
+      .getContext('2d');
+
+  if (!ctx) {
+    return;
+  }
+
+  this.canvasRenderer.renderShapes(
+    ctx,
+
+    this.currentCanvas.shapes.concat(
+      this.currentShape
+        ? [this.currentShape]
+        : []
+    )
+  );
+}
+ finishShape(): void {
+
+  if (!this.currentShape) {
+    return;
+  }
+
+  const ctx =
+    this.canvas.nativeElement
+      .getContext('2d');
+
+  if (!ctx) {
+    return;
+  }
+
+  ctx.closePath();
+
+  /*
+   * Guarantee final geometry reaches
+   * the other clients.
+   */
+  this.collaborationService
+    .sendShapeUpdateFinal(
+      this.currentShape
+    );
+
+  this.currentCanvas.undoStack.push(
+    this.createSnapshot()
+  );
+
+  this.createShape(
+    this.currentShape
+  );
+
+  this.currentCanvas.redoStack = [];
+
+  this.collaborationService.sendDrawingEnd(
+    'SHAPE'
+  );
+
+  this.currentShape = null;
+}
 
 
   // -------------------------
@@ -666,38 +959,109 @@ sendTest(): void {
       snapshot: this.createSnapshot(),
       moved: false
     };
+    this.collaborationService.sendTransformStart(
+  element,
+  kind === 'move'
+    ? 'MOVE'
+    : 'RESIZE'
+);
   }
+  
 
   private updateGesture(event: MouseEvent): void {
-    const gesture = this.gesture;
 
-    if (!gesture) {
-      return;
-    }
+  const gesture =
+    this.gesture;
 
-    const point = this.screenToWorld(event);
+  const element =
+    this.selectedElement;
 
-    if (gesture.kind === 'move') {
-      this.moveSelected(point);
-    } else {
-      this.resizeSelected(point);
-    }
+  if (!gesture || !element) {
+    return;
   }
 
-  private finishGesture(): void {
-    const gesture = this.gesture;
-    this.gesture = null;
+  const point =
+    this.screenToWorld(event);
 
-    if (!gesture || !gesture.moved || !this.selectedElement) {
-      return;
-    }
+  if (gesture.kind === 'move') {
 
-    this.currentCanvas.undoStack.push(gesture.snapshot);
-    this.currentCanvas.redoStack = [];
+    this.moveSelected(point);
 
-    this.persistElement(this.selectedElement);
+  } else {
+
+    this.resizeSelected(point);
   }
 
+  /*
+   * moveSelected / resizeSelected
+   * have now mutated the element.
+   *
+   * Broadcast the new geometry.
+   */
+  this.collaborationService.sendTransformUpdate(
+    element,
+    gesture.kind === 'move'
+      ? 'MOVE'
+      : 'RESIZE'
+  );
+}
+
+private finishGesture(): void {
+
+  const gesture =
+    this.gesture;
+
+  const element =
+    this.selectedElement;
+
+  this.gesture = null;
+
+  if (
+    !gesture ||
+    !gesture.moved ||
+    !element
+  ) {
+    return;
+  }
+
+  const operation =
+    gesture.kind === 'move'
+      ? 'MOVE'
+      : 'RESIZE';
+
+  /*
+   * Send the final geometry without
+   * throttling.
+   */
+  this.collaborationService
+    .sendTransformUpdateFinal(
+      element,
+      operation
+    );
+
+  /*
+   * Tell remote clients the transient
+   * transformation is finished.
+   */
+  this.collaborationService
+    .sendTransformEnd(
+      element,
+      operation
+    );
+
+  /*
+   * Persist ONLY once.
+   */
+  this.currentCanvas.undoStack.push(
+    gesture.snapshot
+  );
+
+  this.currentCanvas.redoStack = [];
+
+  this.persistElement(
+    element
+  );
+}
   private moveSelected(point: Point): void {
     const gesture = this.gesture;
     const element = this.selectedElement;
@@ -958,6 +1322,105 @@ sendTest(): void {
   }
 
   // -------------------------
+  // Realtime element events
+  // -------------------------
+
+  private applyRemoteChange(event: ElementChangeEvent): void {
+    const { element, elementIds } = event.payload;
+
+    switch (event.type) {
+      case 'ELEMENT_CREATED':
+        if (element) {
+          this.addElementToCanvas(element);
+        }
+        break;
+
+      case 'ELEMENT_UPDATED':
+        if (element) {
+          this.updateElementFromRemote(element);
+        }
+        break;
+
+      case 'ELEMENT_DELETED':
+        elementIds?.forEach(id => this.removeElementById(id));
+        break;
+
+      case 'ELEMENTS_CLEARED':
+        this.removeAllElements();
+        break;
+    }
+
+    this.redraw();
+  }
+
+  private updateElementFromRemote(element: Element): void {
+    const existing = this.findElementById(element.id);
+
+    if (!existing) {
+      this.addElementToCanvas(element);
+      return;
+    }
+
+    if (existing === this.currentShape) {
+      return;
+    }
+
+    Object.assign(existing, element.data, {
+      id: element.id,
+      isSelected: existing.isSelected
+    });
+  }
+
+  private removeElementById(id: string): void {
+    if (this.selectedElement?.id === id) {
+      this.gesture = null;
+      this.clearSelection();
+    }
+
+    if (this.currentShape?.id === id) {
+      this.abortTextEditing();
+    }
+
+    this.currentCanvas.shapes =
+      this.currentCanvas.shapes.filter(shape => shape.id !== id);
+
+    this.currentCanvas.strokes =
+      this.currentCanvas.strokes.filter(stroke => stroke.id !== id);
+  }
+
+  private removeAllElements(): void {
+    this.gesture = null;
+
+    if (this.isEditingText) {
+      this.abortTextEditing();
+    }
+
+    this.clearSelection();
+
+    this.currentCanvas.strokes = [];
+    this.currentCanvas.shapes = [];
+    this.currentCanvas.undoStack = [];
+    this.currentCanvas.redoStack = [];
+  }
+
+  private deleteSelected(element: Shape | Stroke): void {
+    if (!element.id) {
+      return;
+    }
+
+    this.removeElementById(element.id);
+    this.redraw();
+
+    this.whiteboardApi
+      .deleteElement(this.boardId, element.id)
+      .subscribe({
+        error: error => {
+          console.error('Failed to delete element:', error);
+        }
+      });
+  }
+
+  // -------------------------
   // Toolbar actions
   // -------------------------
   erase(event: MouseEvent) {
@@ -1012,17 +1475,35 @@ sendTest(): void {
   }
 
   onClear() {
-    this.deleteAllElements();
-    this.currentCanvas.undoStack.push(
-      this.createSnapshot()
-    );
+    if (!this.canModify || this.isEditingText) {
+      return;
+    }
 
-    this.clearSelection();
-    this.currentCanvas.strokes = [];
-    this.currentCanvas.shapes = [];
-    this.currentCanvas.redoStack = [];
+    if (
+      this.currentCanvas.strokes.length === 0 &&
+      this.currentCanvas.shapes.length === 0
+    ) {
+      return;
+    }
 
-    this.redraw();
+    const snapshot = this.createSnapshot();
+
+    this.whiteboardApi
+      .deleteAllElements(this.boardId)
+      .subscribe({
+        next: () => {
+          this.currentCanvas.undoStack.push(snapshot);
+          this.currentCanvas.redoStack = [];
+          this.gesture = null;
+          this.clearSelection();
+          this.currentCanvas.strokes = [];
+          this.currentCanvas.shapes = [];
+          this.redraw();
+        },
+        error: error => {
+          console.error('Failed to clear board:', error);
+        }
+      });
   }
   //undo and redo functions are still state only , postponed side quest
   onUndo() {
@@ -1127,35 +1608,58 @@ sendTest(): void {
   // Rendering
   // -------------------------
 
-  redraw() {
-    const canvas = this.canvas.nativeElement;
-    const ctx = canvas.getContext('2d');
+ redraw(): void {
 
-    if (!ctx) {
-      return;
-    }
+  const canvas =
+    this.canvas.nativeElement;
 
-    this.canvasRenderer.redraw(
-      ctx,
-      canvas,
-      this.currentCanvas.strokes,
-      this.currentCanvas.shapes,
-      this.viewport
-    );
+  const ctx =
+    canvas.getContext('2d');
 
-    if (
-      this.currentShape &&
-      (this.currentShape.type === 'text' ||
-        this.currentShape.type === 'sticky') &&
-      this.isEditingText
-    ) {
-      this.canvasRenderer.renderCaret(
-        ctx,
-        this.currentShape,
-        this.caretVisible
-      );
-    }
+  if (!ctx) {
+    return;
   }
+
+  // ===================================================
+  // NORMAL PERSISTENT CANVAS
+  // ===================================================
+
+ this.canvasRenderer.redraw(
+  ctx,
+  canvas,
+  this.currentCanvas.strokes,
+  this.currentCanvas.shapes,
+  this.viewport
+);
+
+this.renderRemoteTransforms(ctx);
+
+  // ===================================================
+  // REMOTE TRANSIENT DRAWINGS
+  // ===================================================
+
+  this.renderRemoteDrawings(ctx);
+
+  // ===================================================
+  // CARET
+  // ===================================================
+
+  if (
+    this.currentShape &&
+    (
+      this.currentShape.type === 'text' ||
+      this.currentShape.type === 'sticky'
+    ) &&
+    this.isEditingText
+  ) {
+
+    this.canvasRenderer.renderCaret(
+      ctx,
+      this.currentShape,
+      this.caretVisible
+    );
+  }
+}
 
   // -------------------------
   // Helpers
@@ -1564,11 +2068,28 @@ sendTest(): void {
       });
   }
 
+  private findElementById(id: string): Shape | Stroke | undefined {
+    return this.currentCanvas.shapes.find(shape => shape.id === id)
+      ?? this.currentCanvas.strokes.find(stroke => stroke.id === id);
+  }
+
   addElementToCanvas(element: Element): void {
+    if (this.findElementById(element.id)) {
+      return;
+    }
+
     if (element.type === 'STROKE') {
-      this.currentCanvas.strokes.push({ ...element.data, id: element.id, isSelected: false });
+      this.currentCanvas.strokes.push({
+        ...element.data,
+        id: element.id,
+        isSelected: false
+      });
     } else {
-      this.currentCanvas.shapes.push({ ...element.data, id: element.id, isSelected: false });
+      this.currentCanvas.shapes.push({
+        ...element.data,
+        id: element.id,
+        isSelected: false
+      });
     }
   }
   private deleteShape(shape: Shape): void {
@@ -1610,5 +2131,795 @@ sendTest(): void {
       }
     })
   }
+private abortTextEditing(): void {
 
+  if (this.caretInterval) {
+
+    clearInterval(
+        this.caretInterval
+    );
+
+    this.caretInterval = null;
+  }
+
+  this.caretVisible = false;
+
+  this.isEditingText = false;
+
+  this.currentShape = null;
+
+  this.editSnapshot = null;
+
+  this.activeTool = 'select';
+
+  this.updateCursor();
+}
+private handleRemoteDrawing(
+  broadcast: DrawingBroadcast
+): void {
+
+  const userId =
+    broadcast.userId;
+
+  const event =
+    broadcast.event;
+
+  // Safety: don't render our own event.
+  if (
+    userId ===
+    this.collaborationService.currentUserId
+  ) {
+    return;
+  }
+  if (
+  event.operation === 'MOVE' ||
+  event.operation === 'RESIZE'
+) {
+
+  this.handleRemoteTransform(
+    broadcast
+  );
+
+  return;
+}
+
+  // ===================================================
+  // START
+  // ===================================================
+
+  if (event.action === 'START') {
+
+    if (
+      event.elementType === 'STROKE' &&
+      event.point
+    ) {
+
+      const stroke: Stroke = {
+
+        id:
+          `remote-stroke-${userId}`,
+
+        points: [
+          {
+            x: event.point.x,
+            y: event.point.y
+          }
+        ],
+
+        color:
+          event.color ??
+          '#000000',
+
+        width:
+          event.width ??
+          1,
+
+        isSelected: false
+      };
+
+      this.remoteStrokes.set(
+        userId,
+        stroke
+      );
+    }
+
+    else if (
+      event.elementType === 'SHAPE' &&
+      event.startPoint &&
+      event.endPoint
+    ) {
+
+      const shape: Shape = {
+
+        id:
+          `remote-shape-${userId}`,
+
+        type:
+          event.shapeType as Shape['type'],
+
+        startPoint: {
+          x: event.startPoint.x,
+          y: event.startPoint.y
+        },
+
+        endPoint: {
+          x: event.endPoint.x,
+          y: event.endPoint.y
+        },
+
+        color:
+          event.color ??
+          '#000000',
+
+        width:
+          event.width ??
+          1,
+
+        text: '',
+
+        isSelected: false
+      };
+
+      this.remoteShapes.set(
+        userId,
+        shape
+      );
+    }
+
+    this.redraw();
+
+    return;
+  }
+
+  // ===================================================
+  // UPDATE
+  // ===================================================
+
+  if (event.action === 'UPDATE') {
+
+    if (
+      event.elementType === 'STROKE' &&
+      event.point
+    ) {
+
+      const stroke =
+        this.remoteStrokes.get(
+          userId
+        );
+
+      if (!stroke) {
+        return;
+      }
+
+      stroke.points.push({
+        x: event.point.x,
+        y: event.point.y
+      });
+    }
+
+    else if (
+      event.elementType === 'SHAPE'
+    ) {
+
+      const shape =
+        this.remoteShapes.get(
+          userId
+        );
+
+      if (!shape) {
+        return;
+      }
+
+      if (event.startPoint) {
+
+        shape.startPoint = {
+          x: event.startPoint.x,
+          y: event.startPoint.y
+        };
+      }
+
+      if (event.endPoint) {
+
+        shape.endPoint = {
+          x: event.endPoint.x,
+          y: event.endPoint.y
+        };
+      }
+
+      if (event.color) {
+        shape.color =
+          event.color;
+      }
+
+      if (
+        event.width !== undefined
+      ) {
+        shape.width =
+          event.width;
+      }
+    }
+
+    this.redraw();
+
+    return;
+  }
+
+  // ===================================================
+  // END
+  // ===================================================
+
+  if (event.action === 'END') {
+
+    if (
+      event.elementType === 'STROKE'
+    ) {
+
+      this.remoteStrokes.delete(
+        userId
+      );
+    }
+
+    else if (
+      event.elementType === 'SHAPE'
+    ) {
+
+      this.remoteShapes.delete(
+        userId
+      );
+    }
+
+    this.redraw();
+  }
+}
+private renderRemoteDrawings(
+  ctx: CanvasRenderingContext2D
+): void {
+
+  ctx.save();
+
+  /*
+   * Remote coordinates are WORLD coordinates.
+   * Convert world -> screen here.
+   */
+  ctx.translate(
+    this.viewport.offsetX,
+    this.viewport.offsetY
+  );
+
+  ctx.scale(
+    this.viewport.zoom,
+    this.viewport.zoom
+  );
+
+  // ===================================================
+  // REMOTE STROKES
+  // ===================================================
+
+  for (
+    const stroke of
+    this.remoteStrokes.values()
+  ) {
+
+    if (
+      stroke.points.length === 0
+    ) {
+      continue;
+    }
+
+    ctx.beginPath();
+
+    ctx.strokeStyle =
+      stroke.color;
+
+    ctx.lineWidth =
+      stroke.width;
+
+    ctx.lineCap =
+      'round';
+
+    ctx.lineJoin =
+      'round';
+
+    const first =
+      stroke.points[0];
+
+    ctx.moveTo(
+      first.x,
+      first.y
+    );
+
+    for (
+      let i = 1;
+      i < stroke.points.length;
+      i++
+    ) {
+
+      const point =
+        stroke.points[i];
+
+      ctx.lineTo(
+        point.x,
+        point.y
+      );
+    }
+
+    ctx.stroke();
+
+    /*
+     * A one-point stroke otherwise
+     * would be invisible.
+     */
+    if (
+      stroke.points.length === 1
+    ) {
+
+      ctx.beginPath();
+
+      ctx.arc(
+        first.x,
+        first.y,
+        Math.max(
+          stroke.width / 2,
+          1
+        ),
+        0,
+        Math.PI * 2
+      );
+
+      ctx.fillStyle =
+        stroke.color;
+
+      ctx.fill();
+    }
+  }
+
+  // ===================================================
+  // REMOTE SHAPES
+  // ===================================================
+
+  for (
+    const shape of
+    this.remoteShapes.values()
+  ) {
+
+    this.renderRemoteShape(
+      ctx,
+      shape
+    );
+  }
+
+  ctx.restore();
+}
+private renderRemoteShape(
+  ctx: CanvasRenderingContext2D,
+  shape: Shape
+): void {
+
+  const start =
+    shape.startPoint;
+
+  const end =
+    shape.endPoint;
+
+  ctx.save();
+
+  ctx.strokeStyle =
+    shape.color;
+
+  ctx.lineWidth =
+    shape.width;
+
+  ctx.lineCap =
+    'round';
+
+  ctx.lineJoin =
+    'round';
+
+  switch (shape.type) {
+
+    case 'rectangle': {
+
+      const x =
+        Math.min(
+          start.x,
+          end.x
+        );
+
+      const y =
+        Math.min(
+          start.y,
+          end.y
+        );
+
+      const width =
+        Math.abs(
+          end.x - start.x
+        );
+
+      const height =
+        Math.abs(
+          end.y - start.y
+        );
+
+      ctx.strokeRect(
+        x,
+        y,
+        width,
+        height
+      );
+
+      break;
+    }
+
+    case 'ellipse': {
+
+      const centerX =
+        (start.x + end.x) / 2;
+
+      const centerY =
+        (start.y + end.y) / 2;
+
+      const radiusX =
+        Math.abs(
+          end.x - start.x
+        ) / 2;
+
+      const radiusY =
+        Math.abs(
+          end.y - start.y
+        ) / 2;
+
+      if (
+        radiusX > 0 &&
+        radiusY > 0
+      ) {
+
+        ctx.beginPath();
+
+        ctx.ellipse(
+          centerX,
+          centerY,
+          radiusX,
+          radiusY,
+          0,
+          0,
+          Math.PI * 2
+        );
+
+        ctx.stroke();
+      }
+
+      break;
+    }
+
+    case 'line': {
+
+      ctx.beginPath();
+
+      ctx.moveTo(
+        start.x,
+        start.y
+      );
+
+      ctx.lineTo(
+        end.x,
+        end.y
+      );
+
+      ctx.stroke();
+
+      break;
+    }
+
+    case 'arrow': {
+
+      this.renderRemoteArrow(
+        ctx,
+        start,
+        end
+      );
+
+      break;
+    }
+
+    case 'sticky': {
+
+      const x =
+        Math.min(
+          start.x,
+          end.x
+        );
+
+      const y =
+        Math.min(
+          start.y,
+          end.y
+        );
+
+      const width =
+        Math.abs(
+          end.x - start.x
+        );
+
+      const height =
+        Math.abs(
+          end.y - start.y
+        );
+
+      ctx.strokeRect(
+        x,
+        y,
+        width,
+        height
+      );
+
+      break;
+    }
+  }
+
+  ctx.restore();
+}
+private renderRemoteArrow(
+  ctx: CanvasRenderingContext2D,
+  start: Point,
+  end: Point
+): void {
+
+  const angle =
+    Math.atan2(
+      end.y - start.y,
+      end.x - start.x
+    );
+
+  const headLength = 10;
+
+  ctx.beginPath();
+
+  ctx.moveTo(
+    start.x,
+    start.y
+  );
+
+  ctx.lineTo(
+    end.x,
+    end.y
+  );
+
+  ctx.stroke();
+
+  ctx.beginPath();
+
+  ctx.moveTo(
+    end.x,
+    end.y
+  );
+
+  ctx.lineTo(
+    end.x -
+      headLength *
+      Math.cos(angle - Math.PI / 6),
+
+    end.y -
+      headLength *
+      Math.sin(angle - Math.PI / 6)
+  );
+
+  ctx.moveTo(
+    end.x,
+    end.y
+  );
+
+  ctx.lineTo(
+    end.x -
+      headLength *
+      Math.cos(angle + Math.PI / 6),
+
+    end.y -
+      headLength *
+      Math.sin(angle + Math.PI / 6)
+  );
+
+  ctx.stroke();
+}
+private handleRemoteTransform(
+  broadcast: DrawingBroadcast
+): void {
+
+  const userId =
+    broadcast.userId;
+
+  const event =
+    broadcast.event;
+
+  if (!event.elementId) {
+    return;
+  }
+
+  // ===================================================
+  // START
+  // ===================================================
+
+  if (event.action === 'START') {
+
+    const existing =
+      this.findElementById(
+        event.elementId
+      );
+
+    if (!existing) {
+      return;
+    }
+
+    const copy =
+      this.cloneElement(existing);
+
+    this.remoteTransforms.set(
+      userId,
+      copy
+    );
+
+    this.redraw();
+
+    return;
+  }
+
+  // ===================================================
+  // UPDATE
+  // ===================================================
+
+  if (event.action === 'UPDATE') {
+
+    const existing =
+      this.remoteTransforms.get(
+        userId
+      );
+
+    if (!existing) {
+      return;
+    }
+
+    this.applyTransformEvent(
+      existing,
+      event
+    );
+
+    this.redraw();
+
+    return;
+  }
+
+  // ===================================================
+  // END
+  // ===================================================
+
+  if (event.action === 'END') {
+
+    this.remoteTransforms.delete(
+      userId
+    );
+
+    this.redraw();
+  }
+}
+private cloneElement(
+  element: Shape | Stroke
+): Shape | Stroke {
+
+  if (this.isShape(element)) {
+
+    return {
+
+      ...element,
+
+      startPoint: {
+        ...element.startPoint
+      },
+
+      endPoint: {
+        ...element.endPoint
+      },
+
+      isSelected: false
+    };
+  }
+
+  return {
+
+    ...element,
+
+    points:
+      element.points.map(
+        point => ({
+          ...point
+        })
+      ),
+
+    isSelected: false
+  };
+}
+private applyTransformEvent(
+  element: Shape | Stroke,
+  event: DrawingEvent
+): void {
+
+  if (
+    this.isShape(element)
+  ) {
+
+    if (event.startPoint) {
+
+      element.startPoint = {
+        ...event.startPoint
+      };
+    }
+
+    if (event.endPoint) {
+
+      element.endPoint = {
+        ...event.endPoint
+      };
+    }
+
+    if (event.color !== undefined) {
+
+      element.color =
+        event.color;
+    }
+
+    if (event.width !== undefined) {
+
+      element.width =
+        event.width;
+    }
+
+    return;
+  }
+
+  if (event.points) {
+
+    element.points =
+      event.points.map(
+        (        point: any) => ({
+          ...point
+        })
+      );
+  }
+
+  if (event.color !== undefined) {
+
+    element.color =
+      event.color;
+  }
+
+  if (event.width !== undefined) {
+
+    element.width =
+      event.width;
+  }
+}
+private renderRemoteTransforms(
+  ctx: CanvasRenderingContext2D
+): void {
+
+  for (
+    const element
+    of this.remoteTransforms.values()
+  ) {
+
+    if (this.isShape(element)) {
+
+      this.canvasRenderer.renderShapes(
+        ctx,
+        [element]
+      );
+
+    } else {
+
+      this.canvasRenderer.renderStrokes(
+        ctx,
+        [element]
+      );
+    }
+  }
+}
 }

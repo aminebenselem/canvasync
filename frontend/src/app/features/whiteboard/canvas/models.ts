@@ -88,3 +88,68 @@ export interface BoardMember {
   email: string;
   permission: BoardPermission;
 }
+export interface CursorMovedEvent {
+  userId: number;
+  username: string;
+  x: number;
+  y: number;
+}
+export interface CursorLeftEvent {
+  userId: number;
+}
+
+export type ElementEventType =
+  | 'ELEMENT_CREATED'
+  | 'ELEMENT_UPDATED'
+  | 'ELEMENT_DELETED'
+  | 'ELEMENTS_CLEARED';
+
+export interface ElementChangeEvent {
+  type: ElementEventType;
+  boardId: string;
+  payload: {
+    actorId: number;
+    element: Element | null;
+    elementIds: string[] | null;
+  };
+}
+
+export interface DrawingEvent {
+  action: 'START' | 'UPDATE' | 'END';
+
+  elementType: 'STROKE' | 'SHAPE';
+
+  elementId?: string;
+
+  operation?: 'DRAW' | 'MOVE' | 'RESIZE';
+
+  shapeType?: string;
+
+  point?: {
+    x: number;
+    y: number;
+  };
+
+  startPoint?: {
+    x: number;
+    y: number;
+  };
+
+  endPoint?: {
+    x: number;
+    y: number;
+  };
+
+  color?: string;
+
+  width?: number;
+
+  points?: {
+    x: number;
+    y: number;
+  }[];
+}
+export interface DrawingBroadcast {
+  userId: number;
+  event: DrawingEvent;
+}

@@ -7,3 +7,16 @@ canvas {
 .cursor-eraser {
   cursor: url('/assets/cursors/eraser.svg') 12 12, cell;
 }
+.canvas-container {
+  position: relative;
+}
+
+.canvas-container canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+#cursorCanvas {
+  pointer-events: none;
+}

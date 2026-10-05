@@ -1,4 +1,4 @@
 package com.whiteboard.backend.collaboration;
 
-public class WebSocketAuthInterceptor {
+public class CollaborationController {
 }
