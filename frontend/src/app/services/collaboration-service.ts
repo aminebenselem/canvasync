@@ -109,8 +109,7 @@ export class CollaborationService {
 
     this.client = new Client({
 
-      brokerURL:
-        'ws://localhost:8080/api/ws',
+     brokerURL: `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/api/ws`,
 
       onConnect: () => {
 

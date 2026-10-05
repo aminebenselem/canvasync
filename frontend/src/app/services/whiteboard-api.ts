@@ -8,7 +8,7 @@ import { Observable } from 'rxjs';
 })
 export class WhiteboardApi {
 
-  private readonly baseUrl = 'http://localhost:8080/api';
+  private readonly baseUrl = '/api';
 
   constructor(private http: HttpClient) { }
 
