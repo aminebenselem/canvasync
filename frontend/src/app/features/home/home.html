@@ -11,31 +11,72 @@
   <!-- Content card -->
   <div class="relative z-10 text-center px-10 py-14 rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl shadow-2xl animate-fade-in">
 
-    <span class="inline-flex items-center justify-center h-14 w-14 rounded-2xl bg-linear-to-br from-fuchsia-500 to-indigo-600 text-2xl shadow-lg shadow-fuchsia-500/30 mb-6">
+    <span
+      class="inline-flex items-center justify-center h-14 w-14 rounded-2xl
+             bg-linear-to-br from-fuchsia-500 to-indigo-600
+             text-2xl shadow-lg shadow-fuchsia-500/30 mb-6"
+    >
       🖊️
     </span>
 
     <h1 class="text-4xl md:text-5xl font-bold text-white mb-3 tracking-tight">
       Ready to Collaborate?
     </h1>
+
     <p class="text-slate-400 text-lg mb-10">
       Jump into your whiteboard and start creating.
     </p>
 
-    <button
-      (click)="goToWhiteboard()"
-      class="group relative inline-flex items-center gap-2 px-9 py-4 text-lg font-semibold
-             text-white rounded-full overflow-hidden
-             bg-linear-to-r from-fuchsia-600 to-indigo-600
-             shadow-lg shadow-fuchsia-600/30
-             transition-all duration-300 ease-out
-             hover:shadow-xl hover:shadow-fuchsia-600/40 hover:-translate-y-0.5
-             active:translate-y-0 active:scale-95"
-    >
-      <span class="absolute inset-0 bg-linear-to-r from-indigo-600 to-fuchsia-600 opacity-0 transition-opacity duration-300 group-hover:opacity-100"></span>
-      <span class="relative">Open Whiteboard</span>
-      <span class="relative transition-transform duration-300 ease-out group-hover:translate-x-1">→</span>
-    </button>
+    <!-- Logged in -->
+    @if (isLoggedIn) {
+      <button
+        (click)="goToWhiteboard()"
+        class="group relative inline-flex items-center gap-2 px-9 py-4 text-lg font-semibold
+               text-white rounded-full overflow-hidden
+               bg-linear-to-r from-fuchsia-600 to-indigo-600
+               shadow-lg shadow-fuchsia-600/30
+               transition-all duration-300 ease-out
+               hover:shadow-xl hover:shadow-fuchsia-600/40 hover:-translate-y-0.5
+               active:translate-y-0 active:scale-95"
+      >
+        <span
+          class="absolute inset-0 bg-linear-to-r from-indigo-600 to-fuchsia-600
+                 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+        </span>
+
+        <span class="relative">Open Whiteboard</span>
+        <span class="relative transition-transform duration-300 ease-out group-hover:translate-x-1">
+          →
+        </span>
+      </button>
+    }
+
+    <!-- Not logged in -->
+    @if (!isLoggedIn) {
+      <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+
+        <button
+          (click)="goToLogin()"
+          class="px-8 py-3 rounded-full text-white font-semibold
+                 border border-white/20 bg-white/5
+                 hover:bg-white/10 transition-all duration-300"
+        >
+          Login
+        </button>
+
+        <button
+          (click)="goToRegister()"
+          class="px-8 py-3 rounded-full text-white font-semibold
+                 bg-linear-to-r from-fuchsia-600 to-indigo-600
+                 shadow-lg shadow-fuchsia-600/30
+                 hover:-translate-y-0.5 hover:shadow-xl
+                 transition-all duration-300"
+        >
+          Create Account
+        </button>
+
+      </div>
+    }
 
   </div>
 </div>

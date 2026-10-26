@@ -1,7 +1,7 @@
 // auth.service.ts
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, tap } from 'rxjs';
+import { catchError, map, Observable, of, tap } from 'rxjs';
 export interface RegisterRequest
 
  { username: string; 
@@ -43,12 +43,21 @@ export class AuthService {
       );
   }
 
-  logout(): void {
+ logout(): void {
     localStorage.removeItem('access_token');
+    localStorage.removeItem('userId');
   }
+   isAuthenticated(): Observable<boolean> {
+    const token = localStorage.getItem('access_token');
 
-  isAuthenticated(): boolean {
-    return !!localStorage.getItem('access_token');
+    if (!token) {
+      return of(false);
+    }
+
+    return this.http.get('/api/me').pipe(
+      map(() => true),
+      catchError(() => of(false))
+    );
   }
 
   getToken(): string | null {

@@ -8,27 +8,20 @@ import { Router } from '@angular/router';
   templateUrl: './home.html',
   styleUrl: './home.css',
 })
-export class Home implements OnInit {
-  response: any;
-  constructor(private http: HttpClient ,private router: Router) {
+export class Home  {
+   isLoggedIn = !!localStorage.getItem('access_token');
 
+  constructor(private router: Router) {}
+
+  goToWhiteboard(): void {
+    this.router.navigate(['/workspace']);
   }
 
-ngOnInit() {
-this.checkHealth();
-}
-  checkHealth() {
-    this.http.get('http://localhost:8080/api/health').subscribe(
-      (response) => {
-        this.response = response;
-        console.log('Health check successful:', response);
-      },
-      (error) => {
-        console.error('Health check failed:', error);
-      }
-    );
-}
-goToWhiteboard(){
-      this.router.navigate(['/whiteboard']);
-}
+  goToLogin(): void {
+    this.router.navigate(['/login']);
+  }
+
+  goToRegister(): void {
+    this.router.navigate(['/register']);
+  }
 }

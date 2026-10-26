@@ -23,7 +23,7 @@ The application allows multiple users to work on the same board with role-based 
 
 ## System Architecture
 
-![Collaborative Whiteboard System Architecture](docs/images/system-architecture.png)
+![Collaborative Whiteboard System Architecture](arch.png)
 
 The system separates persistent application state from transient collaboration events:
 
